@@ -1,0 +1,7 @@
+{
+  "name": "SecureVault Manager",
+  "description": "Android Secure Vault: Imports, Encrypts, and Wipes originals. Zero-knowledge offline architecture.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

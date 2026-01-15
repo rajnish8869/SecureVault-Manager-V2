@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>SecureVault</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            vault: {
+              950: '#020617',
+              900: '#0f172a',
+              800: '#1e293b',
+              750: '#2d3b55',
+              700: '#334155',
+              600: '#475569',
+              500: '#64748b',
+              400: '#94a3b8',
+              accent: '#3b82f6',
+              danger: '#ef4444',
+              success: '#10b981',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          boxShadow: {
+            'up': '0 -4px 6px -1px rgba(0, 0, 0, 0.1), 0 -2px 4px -1px rgba(0, 0, 0, 0.06)',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    body {
+      background-color: #0f172a;
+      color: #f8fafc;
+      font-family: 'Inter', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: none;
+      /* Prevent rubber-banding on iOS whole page */
+    }
+
+    /* Safe Area Utilities */
+    .pt-safe {
+      padding-top: env(safe-area-inset-top);
+    }
+
+    .pb-safe {
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .pl-safe {
+      padding-left: env(safe-area-inset-left);
+    }
+
+    .pr-safe {
+      padding-right: env(safe-area-inset-right);
+    }
+
+    .top-safe {
+      top: env(safe-area-inset-top);
+    }
+
+    .bottom-safe {
+      bottom: env(safe-area-inset-bottom);
+    }
+
+    /* Dynamic Viewport Height */
+    .h-dvh {
+      height: 100dvh;
+    }
+
+    .min-h-dvh {
+      min-height: 100dvh;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+  </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@19.2.3",
+    "react/": "https://esm.sh/react@19.2.3/",
+    "react-dom": "https://esm.sh/react-dom@19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@19.2.3/",
+    "@capacitor/core": "https://esm.sh/@capacitor/core@8.0.0",
+    "@capacitor/filesystem": "https://esm.sh/@capacitor/filesystem@8.0.0",
+    "@capacitor/preferences": "https://esm.sh/@capacitor/preferences@8.0.0",
+    "@capacitor/haptics": "https://esm.sh/@capacitor/haptics@8.0.0",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "@capacitor/cli": "https://esm.sh/@capacitor/cli@^8.0.1",
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "path": "https://esm.sh/path@^0.12.7",
+    "@capacitor-community/file-opener": "https://esm.sh/@capacitor-community/file-opener@^8.0.0",
+    "@capgo/capacitor-native-biometric": "https://esm.sh/@capgo/capacitor-native-biometric@^8.2.0"
+  }
+}
+</script>
+</head>
+
+<body>
+  <div id="root">
+    <script type="module" src="/index.tsx"></script>
+  </div>
+</body>
+
+</html>
