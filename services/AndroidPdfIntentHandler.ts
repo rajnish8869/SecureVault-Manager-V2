@@ -85,7 +85,7 @@ export class AndroidPdfIntentHandler {
     }
   }
   private static buildPdfIntent(fileUri: string): AndroidIntentOptions {
-    const isContentUri = fileUri.startsWith("content:
+    const isContentUri = fileUri.startsWith("content:");
     const intentOptions: AndroidIntentOptions = {
       action: this.ACTION_VIEW,
       type: this.PDF_MIME_TYPE,
@@ -95,7 +95,7 @@ export class AndroidPdfIntentHandler {
     if (isContentUri) {
       intentOptions.flags!.push(this.FLAG_GRANT_READ_URI_PERMISSION);
       console.debug(
-        "[AndroidPdfIntentHandler] Added FLAG_GRANT_READ_URI_PERMISSION for content:
+        "[AndroidPdfIntentHandler] Added FLAG_GRANT_READ_URI_PERMISSION for content URI"
       );
     }
     return intentOptions;
@@ -169,15 +169,15 @@ export class AndroidPdfIntentHandler {
   }
   private static isValidUri(uri: string): boolean {
     return (
-      uri.startsWith("content:
-      uri.startsWith("file:
-      uri.startsWith("http:
-      uri.startsWith("https:
+      uri.startsWith("content:") ||
+      uri.startsWith("file:") ||
+      uri.startsWith("http:") ||
+      uri.startsWith("https:")
     );
   }
   private static sanitizeUri(uri: string): string {
     if (uri.includes("vault") || uri.includes("data")) {
-      return uri.replace(/\/[a-f0-9\-]{36}\
+      return uri.replace(/\/[\w-]{36}\/.*$/, "/[REDACTED]");
     }
     return uri;
   }

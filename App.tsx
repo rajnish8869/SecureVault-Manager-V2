@@ -36,8 +36,12 @@ interface DialogState {
   type?: DialogType;
   title?: string;
   message?: string;
-  variant?: string;
-  inputProps?: { type: string; placeholder: string };
+  variant?: "info" | "danger" | "success";
+  inputProps?: {
+    placeholder?: string;
+    type?: "text" | "password" | "tel" | "number";
+    defaultValue?: string;
+  };
   onConfirm?: (value?: string) => void;
   onCancel?: () => void;
 }
@@ -71,7 +75,7 @@ export default function App() {
     title: string,
     msg: string,
     onConfirm: () => void,
-    variant = "info"
+    variant: "info" | "danger" | "success" = "info"
   ) =>
     setDialog({
       isOpen: true,
@@ -102,6 +106,7 @@ export default function App() {
   useEffect(() => {
     if (appState === "VAULT" && password) {
       vault.loadFiles();
+      intruder.fetchLogs();
     }
   }, [appState, password]);
   useEffect(() => {

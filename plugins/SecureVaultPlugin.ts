@@ -506,19 +506,25 @@ class SecureVaultFacade implements EncryptionPlugin {
       await StorageService.initDirectory();
       const pendingFiles = await StorageService.getPendingIntruders();
       for (const file of pendingFiles) {
-        const byteCharacters = atob(file.data);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        try {
+          const byteCharacters = atob(file.data);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: "image/jpeg" });
+          await this.importFile({
+            fileBlob: blob,
+            fileName: file.name,
+            password: "",
+          });
+          await StorageService.deletePendingIntruder(file.name);
+        } catch (err) {
+          console.error(`Failed to import pending intruder file ${file.name}`, err);
+          // Optional: Delete corrupted file to prevent blocking future logs?
+          // await StorageService.deletePendingIntruder(file.name);
         }
-        const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], { type: "image/jpeg" });
-        await this.importFile({
-          fileBlob: blob,
-          fileName: file.name,
-          password: "",
-        });
-        await StorageService.deletePendingIntruder(file.name);
       }
     } catch (e) {
       console.log("Error importing pending intruders", e);

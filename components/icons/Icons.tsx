@@ -1,11 +1,15 @@
 import React from "react";
+
+type IconProps = React.SVGProps<SVGSVGElement>;
+
 export const Icons = {
-  Lock: () => (
+  Lock: (props: IconProps) => (
     <svg
       className="w-6 h-6"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
+      {...props}
     >
       <path
         strokeLinecap="round"
@@ -15,12 +19,13 @@ export const Icons = {
       />
     </svg>
   ),
-  Unlock: () => (
+  Unlock: (props: IconProps) => (
     <svg
       className="w-6 h-6"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
+      {...props}
     >
       <path
         strokeLinecap="round"
@@ -30,12 +35,13 @@ export const Icons = {
       />
     </svg>
   ),
-  Shield: () => (
+  Shield: (props: IconProps) => (
     <svg
       className="w-12 h-12"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
+      {...props}
     >
       <path
         strokeLinecap="round"
@@ -45,12 +51,13 @@ export const Icons = {
       />
     </svg>
   ),
-  Plus: () => (
+  Plus: (props: IconProps) => (
     <svg
       className="w-6 h-6"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
+      {...props}
     >
       <path
         strokeLinecap="round"
@@ -60,12 +67,13 @@ export const Icons = {
       />
     </svg>
   ),
-  Trash: () => (
+  Trash: (props: IconProps) => (
     <svg
       className="w-5 h-5 pointer-events-none"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
+      {...props}
     >
       <path
         strokeLinecap="round"
@@ -75,12 +83,13 @@ export const Icons = {
       />
     </svg>
   ),
-  File: () => (
+  File: (props: IconProps) => (
     <svg
       className="w-6 h-6"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
+      {...props}
     >
       <path
         strokeLinecap="round"
@@ -90,17 +99,18 @@ export const Icons = {
       />
     </svg>
   ),
-  Folder: () => (
-    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+  Folder: (props: IconProps) => (
+    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" {...props}>
       <path d="M19.7 7h-6.3c-.6 0-1.1-.4-1.3-.9l-.6-1.7c-.2-.5-.7-.9-1.3-.9H3.7c-1.5 0-2.7 1.2-2.7 2.7v11.6c0 1.5 1.2 2.7 2.7 2.7h16c1.5 0 2.7-1.2 2.7-2.7V9.7c0-1.5-1.2-2.7-2.7-2.7z" />
     </svg>
   ),
-  FolderOpen: () => (
+  FolderOpen: (props: IconProps) => (
     <svg
       className="w-6 h-6"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
+      {...props}
     >
       <path
         strokeLinecap="round"
@@ -110,12 +120,13 @@ export const Icons = {
       />
     </svg>
   ),
-  Eye: () => (
+  Eye: (props: IconProps) => (
     <svg
       className="w-5 h-5"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
+      {...props}
     >
       <path
         strokeLinecap="round"
@@ -131,12 +142,13 @@ export const Icons = {
       />
     </svg>
   ),
-  EyeOff: () => (
+  EyeOff: (props: IconProps) => (
     <svg
       className="w-5 h-5"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
+      {...props}
     >
       <path
         strokeLinecap="round"
@@ -146,12 +158,13 @@ export const Icons = {
       />
     </svg>
   ),
-  Download: () => (
+  Download: (props: IconProps) => (
     <svg
       className="w-5 h-5 pointer-events-none"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
+      {...props}
     >
       <path
         strokeLinecap="round"
@@ -161,12 +174,13 @@ export const Icons = {
       />
     </svg>
   ),
-  Cog: () => (
+  Cog: (props: IconProps) => (
     <svg
       className="w-6 h-6"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
+      {...props}
     >
       <path
         strokeLinecap="round"
@@ -182,12 +196,13 @@ export const Icons = {
       />
     </svg>
   ),
-  ArrowLeft: () => (
+  ArrowLeft: (props: IconProps) => (
     <svg
       className="w-6 h-6"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
+      {...props}
     >
       <path
         strokeLinecap="round"
@@ -197,12 +212,13 @@ export const Icons = {
       />
     </svg>
   ),
-  Backspace: () => (
+  Backspace: (props: IconProps) => (
     <svg
       className="w-6 h-6"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
+      {...props}
     >
       <path
         strokeLinecap="round"
@@ -212,12 +228,13 @@ export const Icons = {
       />
     </svg>
   ),
-  Fingerprint: () => (
+  Fingerprint: (props: IconProps) => (
     <svg
       className="w-8 h-8"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
+      {...props}
     >
       <path
         strokeLinecap="round"
@@ -227,12 +244,13 @@ export const Icons = {
       />
     </svg>
   ),
-  Camera: () => (
+  Camera: (props: IconProps) => (
     <svg
       className="w-6 h-6"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
+      {...props}
     >
       <path
         strokeLinecap="round"
@@ -248,12 +266,13 @@ export const Icons = {
       />
     </svg>
   ),
-  Alert: () => (
+  Alert: (props: IconProps) => (
     <svg
       className="w-6 h-6"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
+      {...props}
     >
       <path
         strokeLinecap="round"
@@ -263,12 +282,13 @@ export const Icons = {
       />
     </svg>
   ),
-  Video: () => (
+  Video: (props: IconProps) => (
     <svg
       className="w-6 h-6"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
+      {...props}
     >
       <path
         strokeLinecap="round"
@@ -278,12 +298,13 @@ export const Icons = {
       />
     </svg>
   ),
-  Image: () => (
+  Image: (props: IconProps) => (
     <svg
       className="w-6 h-6"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
+      {...props}
     >
       <path
         strokeLinecap="round"
@@ -293,12 +314,13 @@ export const Icons = {
       />
     </svg>
   ),
-  Zip: () => (
+  Zip: (props: IconProps) => (
     <svg
       className="w-6 h-6"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
+      {...props}
     >
       <path
         strokeLinecap="round"
@@ -308,12 +330,13 @@ export const Icons = {
       />
     </svg>
   ),
-  Android: () => (
+  Android: (props: IconProps) => (
     <svg
       className="w-6 h-6"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
+      {...props}
     >
       <path
         strokeLinecap="round"
@@ -323,12 +346,13 @@ export const Icons = {
       />
     </svg>
   ),
-  Text: () => (
+  Text: (props: IconProps) => (
     <svg
       className="w-6 h-6"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
+      {...props}
     >
       <path
         strokeLinecap="round"
@@ -338,12 +362,13 @@ export const Icons = {
       />
     </svg>
   ),
-  X: () => (
+  X: (props: IconProps) => (
     <svg
       className="w-6 h-6"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
+      {...props}
     >
       <path
         strokeLinecap="round"
@@ -353,12 +378,13 @@ export const Icons = {
       />
     </svg>
   ),
-  Check: () => (
+  Check: (props: IconProps) => (
     <svg
       className="w-6 h-6"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
+      {...props}
     >
       <path
         strokeLinecap="round"
@@ -368,12 +394,13 @@ export const Icons = {
       />
     </svg>
   ),
-  MoreVertical: () => (
+  MoreVertical: (props: IconProps) => (
     <svg
       className="w-6 h-6"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
+      {...props}
     >
       <path
         strokeLinecap="round"
@@ -383,12 +410,13 @@ export const Icons = {
       />
     </svg>
   ),
-  Copy: () => (
+  Copy: (props: IconProps) => (
     <svg
       className="w-6 h-6"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
+      {...props}
     >
       <path
         strokeLinecap="round"
@@ -398,12 +426,13 @@ export const Icons = {
       />
     </svg>
   ),
-  Move: () => (
+  Move: (props: IconProps) => (
     <svg
       className="w-6 h-6"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
+      {...props}
     >
       <path
         strokeLinecap="round"
@@ -413,12 +442,13 @@ export const Icons = {
       />
     </svg>
   ),
-  Paste: () => (
+  Paste: (props: IconProps) => (
     <svg
       className="w-6 h-6"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
+      {...props}
     >
       <path
         strokeLinecap="round"
@@ -428,12 +458,13 @@ export const Icons = {
       />
     </svg>
   ),
-  Volume2: () => (
+  Volume2: (props: IconProps) => (
     <svg
       className="w-6 h-6"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
+      {...props}
     >
       <path
         strokeLinecap="round"

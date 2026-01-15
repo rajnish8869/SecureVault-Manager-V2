@@ -104,7 +104,7 @@ export class FileOpenService {
           options.vaultFileId || "",
           options.decryptionKey
         );
-        tempPath = `vault:
+        tempPath = `vault:${options.vaultFileId}`;
         this._reportProgress(options.operationId, {
           total: blob.size,
           loaded: blob.size,
