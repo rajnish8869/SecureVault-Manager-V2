@@ -184,7 +184,7 @@ export const VaultDashboard: React.FC<{
   const handleImportInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.length) return;
     onPickStart();
-    const files = Array.from(e.target.files);
+    const files = Array.from(e.target.files || []) as File[];
     onProcessing(true, "Preparing import...");
     try {
       for (let i = 0; i < files.length; i++) {
@@ -195,8 +195,8 @@ export const VaultDashboard: React.FC<{
         );
         await vault.importFile(f);
       }
-    } catch (e) {
-      alert("Import failed: " + e);
+    } catch (err: any) {
+      alert("Import failed: " + err);
     } finally {
       onProcessing(false);
       e.target.value = "";

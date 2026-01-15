@@ -423,10 +423,7 @@ class SecureVaultFacade implements EncryptionPlugin {
     password?: string;
   }> {
     const result = await AuthService.authenticateBiometric();
-    const password = result.success
-      ? await AuthService.getBiometricPassword()
-      : undefined;
-    return { success: result.success, password };
+    return { success: result.success, password: result.password };
   }
   async setDecoyCredential(options: {
     decoyPassword: string;

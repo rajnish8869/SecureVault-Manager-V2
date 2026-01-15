@@ -95,7 +95,7 @@ export class AuthService {
       throw e;
     }
   }
-  static async authenticateBiometric(): Promise<{ success: boolean }> {
+  static async authenticateBiometric(): Promise<{ success: boolean; password?: string }> {
     try {
       const enabled = await this.getBiometricEnabled();
       if (!enabled) {
@@ -108,7 +108,7 @@ export class AuthService {
         return { success: false };
       }
       const result = await BiometricService.authenticate();
-      return { success: result.success };
+      return { success: result.success, password: result.password };
     } catch (e) {
       console.error("[AuthService] Biometric authentication error:", e);
       return { success: false };
