@@ -3,7 +3,6 @@ import type { VaultItem } from '../../types';
 import { Icons, getFileIcon } from '../icons/Icons';
 import { useLongPress } from '../../hooks/useLongPress';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
-import { useThumbnail } from '../../hooks/useThumbnail';
 
 interface VaultListItemProps {
   item: VaultItem;
@@ -18,21 +17,6 @@ interface VaultListItemProps {
 export const VaultListItem: React.FC<VaultListItemProps> = ({ 
   item, selectionMode, isSelected, onSelect, onNavigate, onView, onMenu 
 }) => {
-  const shouldLoadThumbnail = 
-    item.type === 'FILE' && 
-    (item.mimeType.startsWith('image/') || 
-     item.mimeType.startsWith('video/') || 
-     item.mimeType === 'application/vnd.android.package-archive' ||
-     item.originalName.endsWith('.apk'));
-
-  const { thumbnail } = useThumbnail({
-    path: item.originalPath,
-    mimeType: item.mimeType,
-    disabled: !shouldLoadThumbnail,
-    width: 128,
-    height: 128
-  });
-
   const handlePress = () => {
       if (selectionMode) {
           onSelect(item.id);
@@ -55,7 +39,7 @@ export const VaultListItem: React.FC<VaultListItemProps> = ({
     <div 
       {...longPressProps}
       className={`
-        relative flex items-center p-3 mb-2 rounded-2xl transition-all duration-200 border overflow-hidden
+        relative flex items-center p-3 mb-2 rounded-2xl transition-all duration-200 border
         ${isSelected 
             ? 'bg-blue-500/10 border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.1)]' 
             : 'bg-vault-800 border-vault-700 hover:border-vault-600 active:scale-[0.98]'
@@ -64,26 +48,20 @@ export const VaultListItem: React.FC<VaultListItemProps> = ({
     >
       {/* Icon Area */}
       <div className="shrink-0 relative">
-        {thumbnail ? (
-            <div className="w-12 h-12 rounded-xl overflow-hidden border border-vault-700/50 bg-black/20">
-                <img src={thumbnail} alt="" className="w-full h-full object-cover" />
-            </div>
-        ) : (
-            <div className={`
-                w-12 h-12 rounded-xl flex items-center justify-center text-2xl transition-all
-                ${item.type === 'FOLDER' 
-                    ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20' 
-                    : 'bg-vault-900 text-vault-400 border border-vault-800'
-                }
-            `}>
-              {getFileIcon(item.mimeType, item.originalName)}
-            </div>
-        )}
+        <div className={`
+            w-12 h-12 rounded-xl flex items-center justify-center text-2xl transition-all
+            ${item.type === 'FOLDER' 
+                ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20' 
+                : 'bg-vault-900 text-vault-400 border border-vault-800'
+            }
+        `}>
+          {getFileIcon(item.mimeType, item.originalName)}
+        </div>
         
         {/* Selection Checkmark Overlay */}
         {selectionMode && (
             <div className={`
-                absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center border-2 border-vault-800 transition-all z-10
+                absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center border-2 border-vault-800 transition-all
                 ${isSelected ? 'bg-blue-500 text-white scale-100' : 'bg-vault-600 text-transparent scale-90'}
             `}>
                 <Icons.Check className="w-3 h-3 stroke-[4]" />
