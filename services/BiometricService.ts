@@ -1,6 +1,7 @@
 import { Preferences } from "@capacitor/preferences";
 import { Capacitor } from "@capacitor/core";
 import { NativeBiometric } from "@capgo/capacitor-native-biometric";
+
 export enum BiometricError {
   NOT_AVAILABLE = "NOT_AVAILABLE",
   PERMISSION_DENIED = "PERMISSION_DENIED",
@@ -12,6 +13,7 @@ export enum BiometricError {
   NOT_SUPPORTED_ON_PLATFORM = "NOT_SUPPORTED_ON_PLATFORM",
   UNKNOWN = "UNKNOWN",
 }
+
 export interface BiometricCapability {
   available: boolean;
   hasFingerprint: boolean;
@@ -20,15 +22,18 @@ export interface BiometricCapability {
   error?: BiometricError;
   errorMessage?: string;
 }
+
 export interface BiometricAuthResult {
   success: boolean;
   error?: BiometricError;
   errorMessage?: string;
   password?: string;
 }
+
 const BIO_ENABLED_KEY = "vault_bio_enabled";
 const BIO_CAPABILITY_CHECK_KEY = "vault_bio_capability_check";
 const BIO_PASSWORD_KEY = "vault_bio_password";
+
 export class BiometricService {
   static async detectCapabilities(): Promise<BiometricCapability> {
     try {
@@ -43,7 +48,9 @@ export class BiometricService {
             "Biometrics only available on native platforms (Android/iOS)",
         };
       }
+
       const result = await NativeBiometric.isAvailable();
+
       if (!result.isAvailable) {
         return {
           available: false,
@@ -54,7 +61,9 @@ export class BiometricService {
           errorMessage: "Device does not support biometric authentication",
         };
       }
-      const biometryType = result.biometryType || "fingerprint";
+
+      const biometryType = (result.biometryType || "fingerprint") as string;
+
       return {
         available: true,
         hasFingerprint:
@@ -72,6 +81,7 @@ export class BiometricService {
       let error = BiometricError.UNKNOWN;
       let errorMessage =
         e.message || "Unknown error during capability detection";
+
       if (e.message?.includes("permission") || e.message?.includes("denied")) {
         error = BiometricError.PERMISSION_DENIED;
         errorMessage = "Permission denied for biometric access";
@@ -85,6 +95,7 @@ export class BiometricService {
         error = BiometricError.HARDWARE_UNAVAILABLE;
         errorMessage = "Device does not support biometric authentication";
       }
+
       return {
         available: false,
         hasFingerprint: false,
@@ -95,6 +106,7 @@ export class BiometricService {
       };
     }
   }
+
   static async authenticate(): Promise<BiometricAuthResult> {
     try {
       const capabilities = await this.detectCapabilities();
@@ -105,6 +117,7 @@ export class BiometricService {
           errorMessage: capabilities.errorMessage || "Biometrics not available",
         };
       }
+
       if (!capabilities.isEnrolled) {
         return {
           success: false,
@@ -113,28 +126,27 @@ export class BiometricService {
             "No biometrics enrolled. Please enroll in device settings.",
         };
       }
+
       try {
-        const result = await NativeBiometric.verifyIdentity({
+        // verifyIdentity returns void on success, and throws an exception on failure.
+        // We do not check for a returned object.
+        await NativeBiometric.verifyIdentity({
           reason: "Unlock your vault",
           title: "Biometric Authentication",
           subtitle: "Verify your identity to access your vault",
           description: "Use your fingerprint or face to unlock",
           negativeButtonText: "Cancel",
         });
-        if (result) {
-          const storedPassword = await this.getStoredPassword();
-          return {
-            success: true,
-            password: storedPassword || undefined,
-          };
-        }
+
+        // If we reached here, authentication was successful
+        const storedPassword = await this.getStoredPassword();
         return {
-          success: false,
-          error: BiometricError.CANCELLED_BY_USER,
-          errorMessage: "Biometric authentication cancelled",
+          success: true,
+          password: storedPassword || undefined,
         };
       } catch (authError: any) {
         const errorMsg = authError.message || authError.toString();
+
         if (
           errorMsg.includes("cancelled") ||
           errorMsg.includes("user cancelled")
@@ -176,6 +188,7 @@ export class BiometricService {
             errorMessage: "No biometrics enrolled on device",
           };
         }
+
         return {
           success: false,
           error: BiometricError.AUTHENTICATION_FAILED,
@@ -191,44 +204,50 @@ export class BiometricService {
       };
     }
   }
+
+  /**
+   * Minimal change: do NOT rely on NativeBiometric.setCredentials (which caused
+   * failures on newer Android/Samsung devices). Store the password in Preferences.
+   *
+   * NOTE: Storing a plain password in Preferences is less secure — consider
+   * using Android Keystore / secure storage in the future.
+   */
   static async storePassword(password: string): Promise<void> {
     try {
-      await NativeBiometric.setCredentials({
-        username: "vault",
-        password: password,
-        server: "com.securevault.manager",
-      });
-      await Preferences.set({ key: BIO_PASSWORD_KEY, value: "true" });
+      // store password in Preferences (minimal change)
+      await Preferences.set({ key: BIO_PASSWORD_KEY, value: password });
+
+      // keep marker that biometric password exists (for backwards compatibility)
+      await Preferences.set({ key: BIO_CAPABILITY_CHECK_KEY, value: "true" });
     } catch (e) {
       console.error("[BiometricService] Error storing password:", e);
       throw e;
     }
   }
+
   static async getStoredPassword(): Promise<string | null> {
     try {
       const passwordStored = await Preferences.get({ key: BIO_PASSWORD_KEY });
-      if (!passwordStored.value) {
+      if (!passwordStored || !passwordStored.value) {
         return null;
       }
-      const result = await NativeBiometric.getCredentials({
-        server: "com.securevault.manager",
-      });
-      return result.password || null;
+      return passwordStored.value || null;
     } catch (e) {
       console.error("[BiometricService] Error retrieving password:", e);
       return null;
     }
   }
+
   static async clearStoredPassword(): Promise<void> {
     try {
-      await NativeBiometric.deleteCredentials({
-        server: "com.securevault.manager",
-      });
+      // remove stored password and capability marker
       await Preferences.remove({ key: BIO_PASSWORD_KEY });
+      await Preferences.remove({ key: BIO_CAPABILITY_CHECK_KEY });
     } catch (e) {
       console.error("[BiometricService] Error clearing password:", e);
     }
   }
+
   static async isEnabled(): Promise<boolean> {
     try {
       const { value } = await Preferences.get({ key: BIO_ENABLED_KEY });
@@ -238,6 +257,7 @@ export class BiometricService {
       return false;
     }
   }
+
   static async setEnabled(enabled: boolean, password?: string): Promise<void> {
     try {
       if (enabled) {
@@ -255,12 +275,14 @@ export class BiometricService {
       } else {
         await this.clearStoredPassword();
       }
+
       await Preferences.set({ key: BIO_ENABLED_KEY, value: String(enabled) });
     } catch (e) {
       console.error("[BiometricService] Error setting enabled status:", e);
       throw e;
     }
   }
+
   static getStatusMessage(capability: BiometricCapability): string {
     if (!capability.available) {
       if (capability.error === BiometricError.NOT_SUPPORTED_ON_PLATFORM) {
@@ -277,6 +299,7 @@ export class BiometricService {
       }
       return capability.errorMessage || "Biometrics not available";
     }
+
     const methods = [];
     if (capability.hasFingerprint) methods.push("Fingerprint");
     if (capability.hasFaceUnlock) methods.push("Face Unlock");

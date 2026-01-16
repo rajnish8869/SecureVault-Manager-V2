@@ -57,6 +57,7 @@ export default function App() {
   const [processStatus, setProcessStatus] = useState("");
   const [progress, setProgress] = useState(0);
   const isPickingFile = useRef(false);
+  const isBiometricActive = useRef(false);
   const auth = useAuth();
   const vault = useVault(password);
   const intruder = useIntruder();
@@ -114,6 +115,7 @@ export default function App() {
       if (
         document.hidden &&
         !isPickingFile.current &&
+        !isBiometricActive.current &&
         appState !== "SETUP" &&
         appState !== "LOADING"
       ) {
@@ -161,8 +163,16 @@ export default function App() {
     }
   };
   const handleBiometricUnlock = async () => {
-    const pw = await auth.triggerBiometrics();
-    if (pw) handleUnlock(pw);
+    isBiometricActive.current = true;
+    try {
+      const pw = await auth.triggerBiometrics();
+      if (pw) handleUnlock(pw);
+    } finally {
+      // Small delay to ensure app has fully resumed before re-enabling lock check
+      setTimeout(() => {
+        isBiometricActive.current = false;
+      }, 500);
+    }
   };
   const handleView = async (item: any) => {
     setIsProcessing(true);
