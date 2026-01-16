@@ -2,6 +2,7 @@ import React from 'react';
 import type { VaultItem } from '../../types';
 import { Icons } from '../icons/Icons';
 import { VaultListItem } from './VaultListItem';
+import { VaultGridItem } from './VaultGridItem';
 
 interface VaultListProps { 
   items: VaultItem[];
@@ -11,10 +12,11 @@ interface VaultListProps {
   onNavigate: (folder: VaultItem) => void;
   onView: (item: VaultItem) => void;
   onMenu: (item: VaultItem) => void;
+  viewMode: 'LIST' | 'GRID';
 }
 
 export const VaultList: React.FC<VaultListProps> = ({ 
-  items, selectionMode, selectedIds, onSelect, onNavigate, onView, onMenu 
+  items, selectionMode, selectedIds, onSelect, onNavigate, onView, onMenu, viewMode
 }) => {
   const sortedItems = [...items].sort((a, b) => {
       // Sort folders first, then files by date desc
@@ -36,8 +38,27 @@ export const VaultList: React.FC<VaultListProps> = ({
     );
   }
 
+  if (viewMode === 'GRID') {
+      return (
+        <div className="grid grid-cols-3 gap-3 p-1 pb-4 animate-fade-in">
+          {sortedItems.map(item => (
+            <VaultGridItem 
+              key={item.id} 
+              item={item}
+              selectionMode={selectionMode}
+              isSelected={selectedIds.has(item.id)}
+              onSelect={onSelect}
+              onNavigate={onNavigate}
+              onView={onView}
+              onMenu={onMenu}
+            />
+          ))}
+        </div>
+      );
+  }
+
   return (
-    <div className="pb-4">
+    <div className="pb-4 animate-fade-in">
       {sortedItems.map(item => (
         <VaultListItem 
           key={item.id} 

@@ -56,6 +56,7 @@ export const VaultDashboard = forwardRef<VaultDashboardHandle, VaultDashboardPro
   const [menuItem, setMenuItem] = useState<VaultItem | null>(null);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showFolderDialog, setShowFolderDialog] = useState(false);
+  const [viewMode, setViewMode] = useState<'LIST' | 'GRID'>('LIST');
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean;
     title: string;
@@ -385,6 +386,12 @@ export const VaultDashboard = forwardRef<VaultDashboardHandle, VaultDashboardPro
               </h2>
             </div>
             <div className="flex items-center gap-1">
+              <button
+                onClick={() => setViewMode(prev => prev === 'LIST' ? 'GRID' : 'LIST')}
+                className="w-10 h-10 rounded-full flex items-center justify-center text-vault-400 hover:text-white hover:bg-vault-800 active:bg-vault-700 transition-colors"
+              >
+                {viewMode === 'LIST' ? <Icons.LayoutGrid className="w-6 h-6" /> : <Icons.LayoutList className="w-6 h-6" />}
+              </button>
               {!isDecoy && (
                 <button
                   onClick={onSettings}
@@ -444,6 +451,7 @@ export const VaultDashboard = forwardRef<VaultDashboardHandle, VaultDashboardPro
             onNavigate={(folder) => vault.setCurrentFolderId(folder.id)}
             onView={onView}
             onMenu={setMenuItem}
+            viewMode={viewMode}
             />
         </div>
       </div>
