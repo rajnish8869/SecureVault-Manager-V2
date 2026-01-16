@@ -74,8 +74,8 @@ export const LockScreen: React.FC<LockScreenProps> = ({
              
              {/* Branding */}
              <div className="flex flex-col items-center gap-4 mb-4">
-                 <div className="w-16 h-16 bg-vault-900/50 rounded-2xl flex items-center justify-center text-vault-accent border border-vault-700/30 shadow-[0_0_30px_rgba(59,130,246,0.1)] backdrop-blur-sm">
-                     <Icons.Shield className="w-8 h-8" />
+                 <div className="w-24 h-24 bg-vault-900/50 rounded-3xl flex items-center justify-center text-vault-accent border border-vault-700/30 shadow-[0_0_40px_rgba(59,130,246,0.15)] backdrop-blur-sm">
+                     <Icons.Shield className="w-12 h-12" />
                  </div>
                  <h1 className="text-xl font-bold tracking-tight text-white/90">SecureVault</h1>
              </div>

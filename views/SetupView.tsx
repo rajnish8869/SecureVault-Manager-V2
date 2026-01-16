@@ -94,8 +94,8 @@ export const SetupView = forwardRef<SetupViewHandle, SetupViewProps>(({ onSetup,
         {/* Header */}
         <div className="flex-1 flex flex-col items-center justify-center px-6 min-h-0 pt-safe">
             <div className="w-full max-w-sm flex flex-col items-center gap-6">
-                <div className="w-16 h-16 bg-vault-900 rounded-2xl flex items-center justify-center text-vault-accent border border-vault-800 shadow-xl">
-                    <Icons.Shield />
+                <div className="w-24 h-24 bg-vault-900 rounded-3xl flex items-center justify-center text-vault-accent border border-vault-800 shadow-xl">
+                    <Icons.Shield className="w-12 h-12" />
                 </div>
                 
                 <div className="text-center space-y-2">
