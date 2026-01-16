@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, forwardRef, useImperativeHandle } from "react";
 import {
   Card,
   VaultList,
@@ -23,7 +23,11 @@ interface VaultHandle {
   copyItems: (ids: string[], targetId?: string) => Promise<void>;
 }
 
-export const VaultDashboard: React.FC<{
+export interface VaultDashboardHandle {
+  handleBack: () => boolean;
+}
+
+interface VaultDashboardProps {
   vault: VaultHandle;
   isDecoy: boolean;
   onLock: () => void;
@@ -31,7 +35,9 @@ export const VaultDashboard: React.FC<{
   onPickStart: () => void;
   onView: (item: VaultItem) => void;
   onProcessing: (isLoading: boolean, status?: string) => void;
-}> = ({
+}
+
+export const VaultDashboard = forwardRef<VaultDashboardHandle, VaultDashboardProps>(({
   vault,
   isDecoy,
   onLock,
@@ -39,7 +45,7 @@ export const VaultDashboard: React.FC<{
   onPickStart,
   onView,
   onProcessing,
-}) => {
+}, ref) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -58,6 +64,49 @@ export const VaultDashboard: React.FC<{
     variant?: "danger" | "info";
   }>({ isOpen: false, title: "", message: "", action: () => {} });
 
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+    setSelectionMode(false);
+  };
+
+  useImperativeHandle(ref, () => ({
+    handleBack: () => {
+      // Priority 1: Close Item Menu
+      if (menuItem) {
+        setMenuItem(null);
+        return true;
+      }
+      // Priority 2: Close Add Menu (FAB)
+      if (showAddMenu) {
+        setShowAddMenu(false);
+        return true;
+      }
+      // Priority 3: Close Local Dialogs
+      if (showFolderDialog) {
+        setShowFolderDialog(false);
+        return true;
+      }
+      if (confirmConfig.isOpen) {
+        setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+        return true;
+      }
+      // Priority 4: Exit Selection Mode
+      if (selectionMode) {
+        clearSelection();
+        return true;
+      }
+      // Priority 5: Navigate Up Folder
+      if (vault.breadcrumbs.length > 1) {
+        // [Home, Folder A, Folder B] -> Go to Folder A (index 1, length-2)
+        vault.setCurrentFolderId(
+          vault.breadcrumbs[vault.breadcrumbs.length - 2].id
+        );
+        return true;
+      }
+      return false;
+    }
+  }), [menuItem, showAddMenu, showFolderDialog, confirmConfig.isOpen, selectionMode, vault.breadcrumbs, vault.setCurrentFolderId]);
+
   const handleSelect = (id: string) => {
     const newSet = new Set(selectedIds);
     if (newSet.has(id)) newSet.delete(id);
@@ -65,11 +114,6 @@ export const VaultDashboard: React.FC<{
     setSelectedIds(newSet);
     if (newSet.size === 0) setSelectionMode(false);
     else setSelectionMode(true);
-  };
-
-  const clearSelection = () => {
-    setSelectedIds(new Set());
-    setSelectionMode(false);
   };
 
   const handleBulkDelete = () => {
@@ -551,4 +595,4 @@ export const VaultDashboard: React.FC<{
       />
     </div>
   );
-};
+});

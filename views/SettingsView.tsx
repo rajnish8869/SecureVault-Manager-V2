@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import {
   Card,
   Button,
@@ -29,7 +29,11 @@ interface SettingsViewProps {
   isProcessing: boolean;
 }
 
-export const SettingsView: React.FC<SettingsViewProps> = ({
+export interface SettingsViewHandle {
+  handleBack: () => boolean;
+}
+
+export const SettingsView = forwardRef<SettingsViewHandle, SettingsViewProps>(({
   lockType,
   bioAvailable,
   bioEnabled,
@@ -43,7 +47,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onRemoveDecoy,
   onOpenIntruder,
   isProcessing,
-}) => {
+}, ref) => {
   const [form, setForm] = useState({
     old: "",
     new: "",
@@ -59,6 +63,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [bioPasswordPrompt, setBioPasswordPrompt] = useState(false);
   const [bioPassword, setBioPassword] = useState("");
   const [bioPasswordError, setBioPasswordError] = useState<string | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    handleBack: () => {
+      if (bioPasswordPrompt) {
+        setBioPasswordPrompt(false);
+        setBioPassword("");
+        setBioPasswordError(null);
+        return true;
+      }
+      if (showDecoySetup) {
+        setShowDecoySetup(false);
+        setDecoyForm({ pass: "", confirm: "" });
+        return true;
+      }
+      return false;
+    }
+  }), [bioPasswordPrompt, showDecoySetup]);
 
   useEffect(() => {
     setForm((f) => ({ ...f, new: "", confirm: "" }));
@@ -516,4 +537,4 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       )}
     </div>
   );
-};
+});

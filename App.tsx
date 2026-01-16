@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Capacitor } from "@capacitor/core";
+import { App as CapacitorApp } from "@capacitor/app";
 import { SecureVault } from "./plugins/SecureVaultPlugin";
 import type { VaultItem, LockType, IntruderSettings } from "./types";
 import {
@@ -15,10 +16,10 @@ import {
 import { useAuth } from "./hooks/useAuth";
 import { useVault } from "./hooks/useVault";
 import { useIntruder } from "./hooks/useIntruder";
-import { SetupView } from "./views/SetupView";
+import { SetupView, type SetupViewHandle } from "./views/SetupView";
 import { LockScreen } from "./views/LockScreen";
-import { VaultDashboard } from "./views/VaultDashboard";
-import { SettingsView } from "./views/SettingsView";
+import { VaultDashboard, type VaultDashboardHandle } from "./views/VaultDashboard";
+import { SettingsView, type SettingsViewHandle } from "./views/SettingsView";
 import { IntruderLogsView } from "./views/IntruderLogsView";
 
 type AppState =
@@ -61,6 +62,12 @@ export default function App() {
   const auth = useAuth();
   const vault = useVault(password);
   const intruder = useIntruder();
+  
+  // Refs for child components to handle back navigation locally
+  const vaultDashboardRef = useRef<VaultDashboardHandle>(null);
+  const settingsRef = useRef<SettingsViewHandle>(null);
+  const setupRef = useRef<SetupViewHandle>(null);
+
   const [dialog, setDialog] = useState<DialogState>({ isOpen: false });
   const closeDialog = () => setDialog({ ...dialog, isOpen: false });
   const showAlert = (title: string, msg: string) =>
@@ -93,6 +100,15 @@ export default function App() {
   const [viewer, setViewer] = useState<ViewerState | null>(null);
   const [isDecoySession, setIsDecoySession] = useState(false);
   const failedAttempts = useRef(0);
+  
+  const [showIntruderModal, setShowIntruderModal] = useState(false);
+  const [intruderSettingsForm, setIntruderSettingsForm] =
+    useState<IntruderSettings>({
+      enabled: false,
+      photoCount: 1,
+      source: "FRONT",
+    });
+
   useEffect(() => {
     if (!auth.isInitialized) {
       SecureVault.isInitialized().then((res) => {
@@ -104,12 +120,14 @@ export default function App() {
       });
     }
   }, []);
+
   useEffect(() => {
     if (appState === "VAULT" && password) {
       vault.loadFiles();
       intruder.fetchLogs();
     }
   }, [appState, password]);
+
   useEffect(() => {
     const handleVis = () => {
       if (
@@ -134,6 +152,66 @@ export default function App() {
     document.addEventListener("visibilitychange", handleVis);
     return () => document.removeEventListener("visibilitychange", handleVis);
   }, [appState]);
+
+  // Back Button Handling
+  useEffect(() => {
+    const backHandler = CapacitorApp.addListener('backButton', ({ canGoBack }) => {
+        // 1. Close Global Overlays (Highest Priority)
+        if (viewer) {
+            setViewer(null);
+            SecureVault.enablePrivacyScreen({ enabled: false });
+            return;
+        }
+        if (dialog.isOpen) {
+            closeDialog();
+            return;
+        }
+        if (showIntruderModal) {
+            setShowIntruderModal(false);
+            return;
+        }
+
+        // 2. Delegate to Active View Logic
+        switch(appState) {
+            case 'VAULT':
+                if (vaultDashboardRef.current?.handleBack()) return;
+                // If at root of vault, confirm exit? Or just minimize?
+                // Standard Android behavior is to minimize/exit at root.
+                if (!isPickingFile.current) {
+                    CapacitorApp.exitApp();
+                }
+                break;
+            case 'SETTINGS':
+                // Check if settings has local state to pop (decoy setup, bio prompt)
+                if (settingsRef.current?.handleBack()) return;
+                // Otherwise go back to Vault
+                setAppState('VAULT');
+                break;
+            case 'INTRUDER_LOGS':
+                // Go back to Settings view (standard navigation flow)
+                setAppState('SETTINGS');
+                break;
+            case 'SETUP':
+                // Handle back steps in setup (e.g. from Confirm PIN back to Create PIN)
+                if (setupRef.current?.handleBack()) return;
+                // If at start of setup, exit
+                CapacitorApp.exitApp();
+                break;
+            case 'LOCKED':
+                // Prevent bypassing lock screen
+                CapacitorApp.exitApp();
+                break;
+            case 'LOADING':
+                // Do nothing or exit
+                break;
+        }
+    });
+
+    return () => {
+        backHandler.then(h => h.remove());
+    };
+  }, [appState, viewer, dialog.isOpen, showIntruderModal]);
+
   const handleSetup = async (pw: string, type: LockType) => {
     setIsProcessing(true);
     try {
@@ -226,13 +304,7 @@ export default function App() {
       },
     });
   };
-  const [showIntruderModal, setShowIntruderModal] = useState(false);
-  const [intruderSettingsForm, setIntruderSettingsForm] =
-    useState<IntruderSettings>({
-      enabled: false,
-      photoCount: 1,
-      source: "FRONT",
-    });
+
   const openIntruderSettings = async () => {
     const s = await intruder.loadSettings();
     setIntruderSettingsForm(s);
@@ -251,7 +323,11 @@ export default function App() {
   return (
     <div className="min-h-screen bg-vault-900 text-slate-100 font-sans">
       {appState === "SETUP" && (
-        <SetupView onSetup={handleSetup} isProcessing={isProcessing} />
+        <SetupView 
+            ref={setupRef}
+            onSetup={handleSetup} 
+            isProcessing={isProcessing} 
+        />
       )}
       {appState === "LOCKED" && (
         <LockScreen
@@ -267,6 +343,7 @@ export default function App() {
       )}
       {appState === "VAULT" && (
         <VaultDashboard
+          ref={vaultDashboardRef}
           vault={vault}
           isDecoy={isDecoySession}
           onView={handleView}
@@ -285,6 +362,7 @@ export default function App() {
       )}
       {appState === "SETTINGS" && (
         <SettingsView
+          ref={settingsRef}
           lockType={auth.lockType}
           bioAvailable={auth.bioAvailable}
           bioEnabled={auth.bioEnabled}

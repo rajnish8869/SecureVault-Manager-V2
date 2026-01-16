@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, forwardRef, useImperativeHandle } from 'react';
 import { Card, Button, PasswordInput, PinDisplay, NumberPad, Icons } from '../components/UI';
 import type { LockType } from '../types';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
@@ -8,13 +8,39 @@ interface SetupViewProps {
   isProcessing: boolean;
 }
 
-export const SetupView: React.FC<SetupViewProps> = ({ onSetup, isProcessing }) => {
+export interface SetupViewHandle {
+  handleBack: () => boolean;
+}
+
+export const SetupView = forwardRef<SetupViewHandle, SetupViewProps>(({ onSetup, isProcessing }, ref) => {
   const [targetType, setTargetType] = useState<LockType>('PIN'); // Default to PIN for modern mobile feel
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [pinStep, setPinStep] = useState<'CREATE' | 'CONFIRM'>('CREATE');
   const [tempPin, setTempPin] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    handleBack: () => {
+      // If confirming PIN, go back to create step
+      if (targetType === 'PIN' && pinStep === 'CONFIRM') {
+        setPinStep('CREATE');
+        setTempPin('');
+        setPassword('');
+        setError(null);
+        return true;
+      }
+      // If in password mode, switch back to PIN mode (default)
+      if (targetType === 'PASSWORD') {
+        setTargetType('PIN');
+        setPassword('');
+        setConfirm('');
+        setError(null);
+        return true;
+      }
+      return false; // Allow app exit
+    }
+  }), [targetType, pinStep]);
 
   const handlePasswordSubmit = () => {
       if(password !== confirm) {
@@ -139,4 +165,4 @@ export const SetupView: React.FC<SetupViewProps> = ({ onSetup, isProcessing }) =
         </div>
     </div>
   );
-};
+});
