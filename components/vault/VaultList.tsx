@@ -2,6 +2,7 @@ import React from 'react';
 import type { VaultItem } from '../../types';
 import { Icons } from '../icons/Icons';
 import { VaultListItem } from './VaultListItem';
+
 interface VaultListProps { 
   items: VaultItem[];
   selectionMode: boolean;
@@ -11,25 +12,32 @@ interface VaultListProps {
   onView: (item: VaultItem) => void;
   onMenu: (item: VaultItem) => void;
 }
+
 export const VaultList: React.FC<VaultListProps> = ({ 
   items, selectionMode, selectedIds, onSelect, onNavigate, onView, onMenu 
 }) => {
   const sortedItems = [...items].sort((a, b) => {
-      if (a.type === b.type) return b.importedAt - a.importedAt;
-      return a.type === 'FOLDER' ? -1 : 1;
+      // Sort folders first, then files by date desc
+      if (a.type !== b.type) return a.type === 'FOLDER' ? -1 : 1;
+      return b.importedAt - a.importedAt;
   });
+
   if (items.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-vault-500 gap-4">
-        <div className="w-16 h-16 rounded-full bg-vault-800 flex items-center justify-center opacity-50">
-          <Icons.Folder />
+      <div className="flex flex-col items-center justify-center py-32 text-vault-500 gap-4 animate-fade-in">
+        <div className="w-20 h-20 rounded-3xl bg-vault-800/50 border border-vault-700/50 flex items-center justify-center shadow-inner">
+          <Icons.Folder className="w-10 h-10 opacity-40" />
         </div>
-        <p>Folder is empty</p>
+        <div className="text-center">
+            <p className="font-medium text-vault-400">Empty Folder</p>
+            <p className="text-xs text-vault-600 mt-1">Tap + to add content</p>
+        </div>
       </div>
     );
   }
+
   return (
-    <div className="divide-y divide-vault-700/50 pb-20">
+    <div className="pb-4">
       {sortedItems.map(item => (
         <VaultListItem 
           key={item.id} 

@@ -2,12 +2,14 @@ import React, { useState, useEffect } from "react";
 import type { VaultItem, FileTypeCategory } from "../../types";
 import { Icons, getFileIcon } from "../icons/Icons";
 import { FileTypeDetector } from "../../services/FileTypeDetector";
+
 interface FileViewerProps {
   item: VaultItem;
   uri: string | null;
   onClose: () => void;
   onOpenNative?: () => void;
 }
+
 export const FileViewer: React.FC<FileViewerProps> = ({
   item,
   uri,
@@ -18,6 +20,7 @@ export const FileViewer: React.FC<FileViewerProps> = ({
   const [textContent, setTextContent] = useState<string>("Loading...");
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     const detectType = async () => {
       try {
@@ -33,6 +36,7 @@ export const FileViewer: React.FC<FileViewerProps> = ({
     };
     detectType();
   }, [item.mimeType, item.originalName]);
+
   useEffect(() => {
     if (category === "TEXT" && uri) {
       setLoadingProgress(0);
@@ -53,7 +57,9 @@ export const FileViewer: React.FC<FileViewerProps> = ({
         });
     }
   }, [category, uri]);
+
   if (!uri) return null;
+
   const isImage = category === "IMAGE";
   const isVideo = category === "VIDEO";
   const isAudio = category === "AUDIO";
@@ -62,227 +68,146 @@ export const FileViewer: React.FC<FileViewerProps> = ({
   const isArchive = category === "ARCHIVE";
   const isApk = category === "APK";
   const isUnsupported = category === "UNKNOWN";
+
   return (
-    <div className="fixed inset-0 bg-black z-[60] flex flex-col animate-in zoom-in-95 duration-200">
-      <div className="pt-safe bg-vault-950/90 backdrop-blur-md border-b border-vault-800 z-10 flex flex-col shadow-lg">
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-3 overflow-hidden flex-1">
-            <div className="p-2 bg-vault-800 rounded-lg text-vault-400 border border-vault-700 flex-shrink-0">
-              {getFileIcon(item.mimeType, item.originalName)}
-            </div>
-            <div className="min-w-0 flex-1">
-              <h3 className="font-bold text-white truncate text-sm leading-tight">
-                {item.originalName}
-              </h3>
-              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                <p className="text-[10px] text-green-400 flex items-center gap-1 font-mono uppercase tracking-wide">
-                  <Icons.Lock /> Secure View
-                </p>
-                <span className="text-[10px] text-vault-500">
-                  {FileTypeDetector.formatFileSize(item.size)}
-                </span>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 ml-4">
-            {!FileTypeDetector.canPreviewInApp(category) && onOpenNative && (
-              <button
-                onClick={onOpenNative}
-                className="px-3 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition font-medium text-xs border border-blue-500"
-                title="Open with system app"
-              >
-                Open
-              </button>
-            )}
+    <div className="fixed inset-0 bg-black z-[60] flex flex-col h-dvh w-full animate-fade-in">
+      
+      {/* HEADER: Safe Area Top */}
+      <div className="absolute top-0 left-0 right-0 z-50 bg-gradient-to-b from-black/80 to-transparent pt-safe transition-all duration-300">
+        <div className="px-4 py-3 flex items-center justify-between">
             <button
-              onClick={onClose}
-              className="px-4 py-2 rounded-lg bg-vault-800 text-white hover:bg-vault-700 transition font-medium text-sm border border-vault-700"
+                onClick={onClose}
+                className="w-10 h-10 -ml-2 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/20 active:scale-95 transition-all border border-white/10"
             >
-              Close
+                <Icons.X className="w-6 h-6" />
             </button>
-          </div>
+            
+            {!FileTypeDetector.canPreviewInApp(category) && onOpenNative && (
+                <button
+                    onClick={onOpenNative}
+                    className="px-4 py-2 rounded-full bg-blue-600 text-white font-bold text-xs hover:bg-blue-700 active:scale-95 transition-all shadow-lg flex items-center gap-2"
+                >
+                    <Icons.Download className="w-4 h-4" /> Open External
+                </button>
+            )}
         </div>
-        {/* Loading progress bar */}
+      </div>
+
+      {/* CONTENT BODY: Fullscreen */}
+      <div className="flex-1 w-full h-full flex items-center justify-center relative overflow-hidden bg-black">
+        {/* Loading Bar */}
         {loadingProgress > 0 && loadingProgress < 100 && (
-          <div className="h-1 bg-vault-900">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-vault-900 z-40">
             <div
-              className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 transition-all duration-300"
+              className="h-full bg-blue-500 transition-all duration-300"
               style={{ width: `${loadingProgress}%` }}
             />
           </div>
         )}
-      </div>
-      {/* Content Body */}
-      <div className="flex-1 overflow-auto flex items-center justify-center bg-black p-4 relative pb-safe">
+
         {/* Error State */}
         {error && (
-          <div className="w-full max-w-sm bg-red-950 p-6 rounded-xl border border-red-800 shadow-xl text-center">
-            <div className="w-12 h-12 bg-red-900 rounded-full flex items-center justify-center mx-auto mb-4 text-red-400">
-              <Icons.Alert />
+          <div className="max-w-xs text-center space-y-4 p-6 bg-vault-900 rounded-2xl border border-vault-800">
+            <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center mx-auto text-red-500">
+              <Icons.Alert className="w-6 h-6" />
             </div>
-            <h3 className="text-white font-bold mb-2">Error Loading File</h3>
-            <p className="text-red-300 text-sm">{error}</p>
-            <button
-              onClick={onClose}
-              className="mt-4 px-4 py-2 rounded-lg bg-red-900 text-white hover:bg-red-800 transition text-sm"
-            >
-              Close
-            </button>
+            <div>
+                <h3 className="text-white font-bold">Preview Error</h3>
+                <p className="text-red-300 text-sm mt-1">{error}</p>
+            </div>
           </div>
         )}
-        {/* Image Preview */}
+
+        {/* Image */}
         {isImage && !error && (
           <img
             src={uri}
-            alt="Secure Preview"
-            className="max-w-full max-h-full object-contain drop-shadow-2xl rounded-lg"
+            alt="Preview"
+            className="w-full h-full object-contain"
             onError={() => setError("Failed to load image")}
           />
         )}
-        {/* Video Preview */}
+
+        {/* Video */}
         {isVideo && !error && (
-          <div className="w-full max-w-4xl">
-            <video
-              src={uri}
-              controls
-              autoPlay
-              className="w-full h-auto rounded-lg shadow-2xl bg-vault-950"
-              onError={() => setError("Failed to load video")}
-            />
-          </div>
+          <video
+            src={uri}
+            controls
+            autoPlay
+            className="w-full max-h-full"
+            onError={() => setError("Failed to load video")}
+          />
         )}
-        {/* Audio Player */}
+
+        {/* Audio */}
         {isAudio && !error && (
-          <div className="w-full max-w-md bg-vault-900 p-8 rounded-2xl border border-vault-800 shadow-2xl">
-            <div className="flex items-center justify-center mb-6">
-              <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center text-blue-400">
-                <Icons.Volume2 />
+          <div className="w-full max-w-sm bg-vault-900/80 backdrop-blur-xl p-8 rounded-3xl border border-vault-700 shadow-2xl mx-4">
+            <div className="flex justify-center mb-6">
+              <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white shadow-glow">
+                <Icons.Volume2 className="w-8 h-8" />
               </div>
             </div>
-            <h3 className="text-white font-bold text-center mb-2">
+            <h3 className="text-white font-bold text-center mb-4 truncate text-lg">
               {item.originalName}
             </h3>
-            <audio
-              src={uri}
-              controls
-              className="w-full"
-              onError={() => setError("Failed to load audio")}
-            />
+            <audio src={uri} controls className="w-full" onError={() => setError("Failed to load audio")} />
           </div>
         )}
-        {/* Text Preview */}
+
+        {/* Text */}
         {isText && !error && (
-          <div className="w-full max-w-4xl mx-auto h-full bg-white text-black p-6 rounded-lg overflow-auto font-mono text-xs md:text-sm whitespace-pre-wrap shadow-xl">
-            {loadingProgress < 100 ? (
-              <div className="text-center text-gray-500">Loading...</div>
-            ) : (
-              textContent
-            )}
+          <div className="w-full h-full bg-white text-black overflow-auto pt-safe pb-safe px-4 md:px-8">
+             <div className="max-w-3xl mx-auto py-8 whitespace-pre-wrap font-mono text-sm leading-relaxed">
+                {loadingProgress < 100 ? "Loading..." : textContent}
+             </div>
           </div>
         )}
-        {/* PDF Preview */}
+
+        {/* PDF */}
         {isPdf && !error && (
           <iframe
             src={uri}
-            className="w-full h-full bg-white border-none rounded-lg shadow-2xl"
-            title="PDF Viewer"
+            className="w-full h-full bg-white"
+            title="PDF"
             onError={() => setError("Failed to load PDF")}
           />
         )}
-        {/* APK Info */}
-        {isApk && !error && (
-          <div className="w-full max-w-sm bg-vault-900 p-8 rounded-3xl border border-vault-800 text-center space-y-6 shadow-2xl">
-            <div className="w-24 h-24 mx-auto bg-green-500/10 rounded-3xl flex items-center justify-center text-green-500 border border-green-500/20">
-              <Icons.Android />
+
+        {/* Generic Unsupported / Archive / APK */}
+        {(isArchive || isApk || isUnsupported) && !error && (
+          <div className="text-center p-8 max-w-sm w-full mx-auto">
+            <div className="w-24 h-24 bg-vault-800 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-vault-700 shadow-xl">
+               {getFileIcon(item.mimeType, item.originalName)}
             </div>
-            <div>
-              <h2 className="text-xl font-bold text-white">
-                {item.originalName}
-              </h2>
-              <p className="text-sm text-vault-400">
-                Android Application Package
-              </p>
-            </div>
-            <div className="bg-vault-950 rounded-xl p-4 text-left space-y-3 text-sm border border-vault-800">
-              <div className="flex justify-between border-b border-vault-800 pb-2">
-                <span className="text-vault-500">Size</span>
-                <span className="text-white font-mono">
-                  {FileTypeDetector.formatFileSize(item.size)}
-                </span>
-              </div>
-              <div className="flex justify-between border-b border-vault-800 pb-2">
-                <span className="text-vault-500">Type</span>
-                <span className="text-white">APK Package</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-vault-500">Status</span>
-                <span className="text-orange-400">Not Installable</span>
-              </div>
-            </div>
-            <p className="text-xs text-amber-500/80 bg-amber-500/10 p-3 rounded-lg border border-amber-500/10">
-              Installation from secure vault is restricted for security. Export
-              to install.
-            </p>
-          </div>
-        )}
-        {/* Archive Preview */}
-        {isArchive && !error && (
-          <div className="w-full max-w-md bg-vault-900 rounded-2xl border border-vault-800 flex flex-col max-h-[80vh] shadow-2xl">
-            <div className="p-4 border-b border-vault-800 flex items-center gap-3 bg-vault-800/50 rounded-t-2xl">
-              <div className="text-yellow-500 text-xl">
-                <Icons.Zip />
-              </div>
-              <div>
-                <h4 className="font-bold text-white">Archive</h4>
-                <p className="text-xs text-vault-400">Preview not available</p>
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 flex items-center justify-center">
-              <div className="text-center text-vault-400">
-                <p className="mb-3">
-                  Archives must be extracted to view contents
-                </p>
-                <p className="text-xs text-vault-500">
-                  Export this file to view its contents
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-        {/* Unsupported File Type */}
-        {isUnsupported && !error && (
-          <div className="text-center p-8 bg-vault-900 rounded-xl border border-vault-800 shadow-xl max-w-sm">
-            <div className="w-16 h-16 bg-vault-800 rounded-full flex items-center justify-center mx-auto mb-4 text-vault-400">
-              <Icons.Alert />
-            </div>
-            <h3 className="text-white font-bold mb-2">Preview Not Supported</h3>
+            <h3 className="text-white font-bold text-xl mb-2 break-words line-clamp-3">{item.originalName}</h3>
             <p className="text-vault-400 text-sm mb-6">
-              This file type cannot be previewed in the app.
-            </p>
-            <p className="text-xs text-vault-500 mb-4">
-              File: {item.originalName}
-              <br />
-              Size: {FileTypeDetector.formatFileSize(item.size)}
-              <br />
-              Type: {item.mimeType}
+              {isArchive ? "Archive content cannot be previewed directly." : 
+               isApk ? "APK packages cannot be installed from secure storage." : 
+               "Preview not available for this file type."}
             </p>
             {onOpenNative && (
-              <button
-                onClick={onOpenNative}
-                className="w-full px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition font-medium text-sm mb-2"
-              >
-                Open with App
-              </button>
+                <button
+                    onClick={onOpenNative}
+                    className="w-full px-6 py-3 rounded-xl bg-vault-800 hover:bg-vault-700 text-white font-bold border border-vault-700 transition-colors"
+                >
+                    Open with System App
+                </button>
             )}
-            <button
-              onClick={onClose}
-              className="w-full px-4 py-2 rounded-lg bg-vault-800 text-white hover:bg-vault-700 transition font-medium text-sm"
-            >
-              Close
-            </button>
           </div>
         )}
       </div>
+
+      {/* FOOTER METADATA: Safe Area Bottom */}
+      {(isImage || isVideo) && !error && (
+        <div className="absolute bottom-0 left-0 right-0 z-50 bg-gradient-to-t from-black/90 via-black/50 to-transparent pb-safe pt-12">
+            <div className="px-6 pb-6 text-center">
+                <h4 className="text-white font-medium text-sm truncate opacity-90">{item.originalName}</h4>
+                <p className="text-xs text-white/50 font-mono mt-1">
+                    {FileTypeDetector.formatFileSize(item.size)} • {item.mimeType}
+                </p>
+            </div>
+        </div>
+      )}
     </div>
   );
 };

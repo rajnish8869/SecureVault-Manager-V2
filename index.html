@@ -14,24 +14,53 @@
         extend: {
           colors: {
             vault: {
-              950: '#020617',
-              900: '#0f172a',
-              800: '#1e293b',
+              950: '#020617', // Main Background
+              900: '#0f172a', // Secondary Background
+              850: '#151e32', // Surface
+              800: '#1e293b', // Card/Item
               750: '#2d3b55',
-              700: '#334155',
-              600: '#475569',
+              700: '#334155', // Border
+              600: '#475569', // Muted Text
               500: '#64748b',
               400: '#94a3b8',
-              accent: '#3b82f6',
-              danger: '#ef4444',
-              success: '#10b981',
+              300: '#cbd5e1',
+              200: '#e2e8f0',
+              100: '#f1f5f9',
+              accent: '#3b82f6', // Blue-500
+              accentHover: '#2563eb', // Blue-600
+              danger: '#ef4444', // Red-500
+              success: '#10b981', // Emerald-500
+              warning: '#f59e0b', // Amber-500
             }
           },
           fontFamily: {
-            sans: ['Inter', 'sans-serif'],
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
           },
           boxShadow: {
             'up': '0 -4px 6px -1px rgba(0, 0, 0, 0.1), 0 -2px 4px -1px rgba(0, 0, 0, 0.06)',
+            'glow': '0 0 20px rgba(59, 130, 246, 0.15)',
+          },
+          animation: {
+            'shake': 'shake 0.5s cubic-bezier(.36,.07,.19,.97) both',
+            'slide-up': 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+            'fade-in': 'fadeIn 0.2s ease-out',
+          },
+          keyframes: {
+            shake: {
+              '10%, 90%': { transform: 'translate3d(-1px, 0, 0)' },
+              '20%, 80%': { transform: 'translate3d(2px, 0, 0)' },
+              '30%, 50%, 70%': { transform: 'translate3d(-4px, 0, 0)' },
+              '40%, 60%': { transform: 'translate3d(4px, 0, 0)' }
+            },
+            slideUp: {
+              '0%': { transform: 'translateY(100%)' },
+              '100%': { transform: 'translateY(0)' }
+            },
+            fadeIn: {
+              '0%': { opacity: '0' },
+              '100%': { opacity: '1' }
+            }
           }
         }
       }
@@ -41,15 +70,15 @@
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
     body {
-      background-color: #0f172a;
-      color: #f8fafc;
+      background-color: #020617; /* vault-950 */
+      color: #f1f5f9; /* vault-100 */
       font-family: 'Inter', sans-serif;
       -webkit-tap-highlight-color: transparent;
       overscroll-behavior-y: none;
-      /* Prevent rubber-banding on iOS whole page */
+      /* Prevent native rubber-banding */
     }
 
-    /* Safe Area Utilities */
+    /* Safe Area Utilities using CSS Environment Variables */
     .pt-safe {
       padding-top: env(safe-area-inset-top);
     }
@@ -66,15 +95,15 @@
       padding-right: env(safe-area-inset-right);
     }
 
-    .top-safe {
-      top: env(safe-area-inset-top);
+    .mb-safe {
+      margin-bottom: env(safe-area-inset-bottom);
+    }
+    
+    .mt-safe {
+        margin-top: env(safe-area-inset-top);
     }
 
-    .bottom-safe {
-      bottom: env(safe-area-inset-bottom);
-    }
-
-    /* Dynamic Viewport Height */
+    /* Dynamic Viewport Height Fix for Mobile Browsers */
     .h-dvh {
       height: 100dvh;
     }
@@ -83,10 +112,10 @@
       min-height: 100dvh;
     }
 
-    /* Custom scrollbar */
+    /* Sleek Dark Scrollbar */
     ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
+      width: 4px;
+      height: 4px;
     }
 
     ::-webkit-scrollbar-track {
@@ -95,7 +124,7 @@
 
     ::-webkit-scrollbar-thumb {
       background: #334155;
-      border-radius: 3px;
+      border-radius: 4px;
     }
 
     ::-webkit-scrollbar-thumb:hover {

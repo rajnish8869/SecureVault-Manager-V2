@@ -1,24 +1,35 @@
 import React, { useState } from 'react';
 import { Card, Button, PasswordInput, PinDisplay, NumberPad, Icons } from '../components/UI';
 import type { LockType } from '../types';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
+
 interface SetupViewProps {
   onSetup: (password: string, type: LockType) => Promise<void>;
   isProcessing: boolean;
 }
+
 export const SetupView: React.FC<SetupViewProps> = ({ onSetup, isProcessing }) => {
-  const [targetType, setTargetType] = useState<LockType>('PASSWORD');
+  const [targetType, setTargetType] = useState<LockType>('PIN'); // Default to PIN for modern mobile feel
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [pinStep, setPinStep] = useState<'CREATE' | 'CONFIRM'>('CREATE');
   const [tempPin, setTempPin] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
   const handlePasswordSubmit = () => {
       if(password !== confirm) {
-          alert("Passwords do not match");
+          setError("Passwords do not match");
+          return;
+      }
+      if(password.length < 8) {
+          setError("Password must be at least 8 characters");
           return;
       }
       onSetup(password, 'PASSWORD');
   };
+
   const handlePinDigit = (d: string) => {
+      setError(null);
       if(password.length < 6) {
           const newVal = password + d;
           setPassword(newVal);
@@ -33,74 +44,99 @@ export const SetupView: React.FC<SetupViewProps> = ({ onSetup, isProcessing }) =
                   if(newVal === tempPin) {
                       onSetup(newVal, 'PIN');
                   } else {
-                      alert("PINs do not match");
-                      setPinStep('CREATE');
-                      setTempPin('');
-                      setPassword('');
+                      setError("PINs do not match. Try again.");
+                      try { Haptics.impact({ style: ImpactStyle.Heavy }); } catch(e){}
+                      setTimeout(() => {
+                          setPinStep('CREATE');
+                          setTempPin('');
+                          setPassword('');
+                          setError(null);
+                      }, 1500);
                   }
               }
           }
       }
   };
+
+  const handleBackspace = () => {
+      setPassword(prev => prev.slice(0, -1));
+      setError(null);
+  };
+
   return (
-    <div className="min-h-dvh flex items-center justify-center p-6 animate-in fade-in duration-500 bg-vault-950">
-      <div className="w-full max-w-sm space-y-8">
-        <div className="text-center space-y-4">
-            <div className="w-20 h-20 mx-auto bg-vault-800 rounded-2xl flex items-center justify-center text-vault-accent shadow-xl border border-vault-700">
-                <Icons.Shield />
+    <div className="h-dvh w-full bg-vault-950 flex flex-col font-sans overflow-hidden">
+        {/* Header */}
+        <div className="flex-1 flex flex-col items-center justify-center px-6 min-h-0 pt-safe">
+            <div className="w-full max-w-sm flex flex-col items-center gap-6">
+                <div className="w-16 h-16 bg-vault-900 rounded-2xl flex items-center justify-center text-vault-accent border border-vault-800 shadow-xl">
+                    <Icons.Shield />
+                </div>
+                
+                <div className="text-center space-y-2">
+                    <h1 className="text-2xl font-bold text-white">Setup Vault</h1>
+                    <p className="text-sm text-vault-400">
+                        {targetType === 'PASSWORD' 
+                            ? 'Create a strong password' 
+                            : pinStep === 'CREATE' ? 'Create a 6-digit PIN' : 'Confirm your PIN'}
+                    </p>
+                </div>
+
+                {targetType === 'PIN' ? (
+                    <div className="w-full py-4 min-h-[80px] flex flex-col items-center justify-center">
+                        <PinDisplay value={password} hasError={!!error} />
+                        {error && <p className="text-red-400 text-xs font-medium mt-2 animate-in fade-in">{error}</p>}
+                    </div>
+                ) : (
+                    <Card className="w-full p-5 space-y-4 bg-vault-900/50 backdrop-blur border-vault-800">
+                        <div className="space-y-3">
+                            <PasswordInput value={password} onChange={setPassword} placeholder="Password (min 8 chars)" error={!!error} />
+                            <PasswordInput value={confirm} onChange={setConfirm} placeholder="Confirm Password" error={!!error} />
+                        </div>
+                        {error && <p className="text-red-400 text-xs text-center">{error}</p>}
+                        <Button className="w-full" onClick={handlePasswordSubmit} disabled={!password || !confirm || isProcessing}>
+                            {isProcessing ? 'Saving...' : 'Set Password'}
+                        </Button>
+                    </Card>
+                )}
             </div>
-            <h1 className="text-2xl font-bold text-white">Welcome to SecureVault</h1>
-            <p className="text-sm text-vault-400">Choose how you want to lock your files.</p>
         </div>
-        {targetType === 'PASSWORD' ? (
-            <Card className="p-6 space-y-6 shadow-2xl">
-                <div className="grid grid-cols-2 gap-3">
-                    <button
-                        onClick={() => { setTargetType('PIN'); setPassword(''); }}
-                        className="p-3 rounded-lg border text-sm font-bold transition-all bg-vault-800 border-vault-600 text-vault-400 hover:border-vault-500 hover:text-white"
-                    >
-                        PIN Code
-                    </button>
-                    <button className="p-3 rounded-lg border text-sm font-bold transition-all bg-vault-accent/20 border-vault-accent text-white shadow-inner">
-                        Password
-                    </button>
-                </div>
-                <div className="space-y-4">
-                    <div className="space-y-1">
-                        <label className="text-xs text-vault-400 uppercase font-bold tracking-wider">Create Password</label>
-                        <PasswordInput value={password} onChange={setPassword} placeholder="Min 8 characters" />
-                    </div>
-                    <div className="space-y-1">
-                        <label className="text-xs text-vault-400 uppercase font-bold tracking-wider">Confirm</label>
-                        <PasswordInput value={confirm} onChange={setConfirm} placeholder="Repeat to confirm" />
-                    </div>
-                </div>
-                <Button className="w-full shadow-lg shadow-blue-500/20" onClick={handlePasswordSubmit} disabled={!password || !confirm || isProcessing}>
-                    {isProcessing ? 'Initializing...' : 'Set & Continue'}
-                </Button>
-            </Card>
-        ) : (
-            <div className="space-y-8 animate-in slide-in-from-right-8 duration-300">
-                 <div className="flex justify-center mb-6">
-                      <div className="flex bg-vault-800 p-1 rounded-lg border border-vault-700">
-                          <button className="px-4 py-1.5 rounded bg-vault-accent text-white text-xs font-bold shadow-sm">PIN Code</button>
-                          <button onClick={() => { setTargetType('PASSWORD'); setPassword(''); }} className="px-4 py-1.5 rounded text-vault-400 hover:text-white text-xs font-bold transition-colors">Password</button>
-                      </div>
-                  </div>
-                  <div className="text-center">
-                    <h3 className="text-lg font-medium text-white mb-6">
-                      {pinStep === 'CREATE' ? 'Create your 6-digit PIN' : 'Confirm your PIN'}
-                    </h3>
-                    <PinDisplay value={password} />
+
+        {/* Footer / Keypad */}
+        <div className="pb-safe pt-4 bg-vault-950">
+            {targetType === 'PIN' ? (
+                <>
                     <NumberPad 
-                      onPress={handlePinDigit} 
-                      onBackspace={() => setPassword(p => p.slice(0, -1))} 
-                      disabled={isProcessing}
+                        onPress={handlePinDigit} 
+                        disabled={isProcessing || (!!error && pinStep === 'CONFIRM')}
+                        leftSlot={
+                            <button onClick={handleBackspace} className="w-20 h-20 flex items-center justify-center text-vault-500 hover:text-white">
+                                <Icons.Backspace className="w-8 h-8" />
+                            </button>
+                        }
+                        rightSlot={
+                            <div /> // Empty slot for balance
+                        }
                     />
-                  </div>
-            </div>
-        )}
-      </div>
+                    <div className="flex justify-center pb-4 mt-2">
+                        <button 
+                            onClick={() => { setTargetType('PASSWORD'); setPassword(''); setConfirm(''); }}
+                            className="text-xs text-vault-500 hover:text-vault-300 font-medium py-2 px-4"
+                        >
+                            Switch to Password
+                        </button>
+                    </div>
+                </>
+            ) : (
+                <div className="flex justify-center pb-8">
+                    <button 
+                        onClick={() => { setTargetType('PIN'); setPassword(''); setTempPin(''); setPinStep('CREATE'); setError(null); }}
+                        className="text-sm text-vault-accent font-bold py-3 px-6 rounded-lg hover:bg-vault-900 transition-colors"
+                    >
+                        Switch to PIN Code
+                    </button>
+                </div>
+            )}
+        </div>
     </div>
   );
 };

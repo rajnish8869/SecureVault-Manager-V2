@@ -8,6 +8,7 @@ import {
   Icons,
 } from "../components/UI";
 import type { LockType } from "../types";
+
 interface SettingsViewProps {
   lockType: LockType;
   bioAvailable: boolean;
@@ -27,6 +28,7 @@ interface SettingsViewProps {
   onOpenIntruder: () => void;
   isProcessing: boolean;
 }
+
 export const SettingsView: React.FC<SettingsViewProps> = ({
   lockType,
   bioAvailable,
@@ -57,12 +59,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [bioPasswordPrompt, setBioPasswordPrompt] = useState(false);
   const [bioPassword, setBioPassword] = useState("");
   const [bioPasswordError, setBioPasswordError] = useState<string | null>(null);
+
   useEffect(() => {
     setForm((f) => ({ ...f, new: "", confirm: "" }));
     setCredError(null);
   }, [form.type]);
+
   const PIN_LENGTH = 6;
   const MIN_PASS_LENGTH = 8;
+
   const validateCreds = () => {
     setCredError(null);
     if (!form.old) {
@@ -86,6 +91,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
     return true;
   };
+
   const handleUpdate = () => {
     if (validateCreds()) {
       onUpdateCredentials(form.old, form.new, form.type)
@@ -95,6 +101,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         .catch(() => {});
     }
   };
+
   const validateDecoy = () => {
     setDecoyError(null);
     if (lockType === "PIN") {
@@ -116,6 +123,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
     return true;
   };
+
   const handleBioToggle = async (enabled: boolean) => {
     if (enabled) {
       setBioPasswordPrompt(true);
@@ -134,6 +142,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       }
     }
   };
+
   const handleBioPasswordConfirm = async () => {
     if (!bioPassword) {
       setBioPasswordError("Password is required");
@@ -153,6 +162,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setBioToggleLoading(false);
     }
   };
+
   const handleDecoySubmit = () => {
     if (validateDecoy()) {
       onSetupDecoy(decoyForm.pass, decoyForm.confirm);
@@ -160,20 +170,32 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setDecoyForm({ pass: "", confirm: "" });
     }
   };
+
   return (
-    <div className="animate-in fade-in slide-in-from-right-8 duration-300 bg-vault-950 min-h-dvh flex flex-col">
-      <header className="sticky top-0 z-40 bg-vault-950/80 backdrop-blur-xl border-b border-vault-800 pt-safe px-4 py-3 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-3">
+    <div className="h-dvh w-full bg-vault-950 flex flex-col font-sans overflow-hidden">
+      {/* 
+        HEADER SECTION 
+        Sticky to top with safe area padding
+      */}
+      <header className="z-30 pt-safe flex-shrink-0 bg-vault-950/80 backdrop-blur-xl border-b border-vault-800 shadow-sm">
+        <div className="px-4 h-14 flex items-center gap-4">
           <button
             onClick={onBack}
-            className="p-2 -ml-2 rounded-full text-vault-400 hover:text-white hover:bg-vault-800 transition-colors"
+            className="w-10 h-10 -ml-2 rounded-full flex items-center justify-center text-vault-400 hover:text-white hover:bg-vault-800 active:bg-vault-700 transition-colors"
           >
-            <Icons.ArrowLeft />
+            <Icons.ArrowLeft className="w-6 h-6" />
           </button>
-          <h2 className="font-bold text-lg text-white">Settings</h2>
+          <h2 className="font-bold text-lg text-white tracking-tight">Settings</h2>
         </div>
       </header>
-      <main className="flex-1 p-4 max-w-2xl mx-auto space-y-8 pb-safe overflow-y-auto w-full">
+
+      {/* 
+        SCROLLABLE CONTENT
+        Bottom padding for safe area
+      */}
+      <main className="flex-1 overflow-y-auto p-4 space-y-8 pb-safe w-full max-w-2xl mx-auto">
+        
+        {/* Security Monitoring */}
         <section className="space-y-3">
           <h3 className="text-xs font-bold text-vault-500 uppercase tracking-wider px-1">
             Security Monitoring
@@ -181,93 +203,81 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <Card className="p-1">
             <button
               onClick={onOpenIntruder}
-              className="w-full flex items-center justify-between p-4 rounded-lg bg-vault-800 hover:bg-vault-750 transition-all group"
+              className="w-full flex items-center justify-between p-4 rounded-xl bg-vault-800 hover:bg-vault-750 active:bg-vault-700 transition-all group"
             >
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 border border-red-500/20 group-hover:scale-110 transition-transform">
-                  <Icons.Camera />
+                  <Icons.Camera className="w-5 h-5" />
                 </div>
                 <div className="text-left">
                   <h3 className="font-bold text-white group-hover:text-red-400 transition-colors">
                     Intruder Selfie
                   </h3>
-                  <p className="text-xs text-vault-400">
+                  <p className="text-xs text-vault-400 mt-0.5">
                     Capture photos of failed unlock attempts
                   </p>
                 </div>
               </div>
               <div className="text-vault-500 group-hover:text-white transition-colors rotate-180">
-                <Icons.ArrowLeft />
+                <Icons.ArrowLeft className="w-5 h-5" />
               </div>
             </button>
           </Card>
         </section>
+
+        {/* General Settings */}
         <section className="space-y-3">
           <h3 className="text-xs font-bold text-vault-500 uppercase tracking-wider px-1">
             General
           </h3>
-          <Card className="divide-y divide-vault-700/50">
-            {bioAvailable ? (
-              <div className="p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="text-vault-400">
-                      <Icons.Fingerprint />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-white">
-                        Biometric Unlock
-                      </h4>
-                      <p className="text-xs text-vault-400">
-                        Use fingerprint or face unlock
-                      </p>
-                    </div>
-                  </div>
-                  <Toggle
-                    checked={bioEnabled}
-                    onChange={handleBioToggle}
-                    disabled={bioToggleLoading}
-                  />
-                </div>
-                {bioToggleError && (
-                  <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 flex items-start gap-2">
-                    <Icons.Alert className="text-red-500 flex-shrink-0 mt-0.5" />
-                    <p className="text-xs text-red-200">{bioToggleError}</p>
-                  </div>
-                )}
-                {bioError && (
-                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 flex items-start gap-2">
-                    <Icons.Alert className="text-amber-500 flex-shrink-0 mt-0.5" />
-                    <p className="text-xs text-amber-200">{bioError}</p>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="p-4 space-y-2 opacity-60">
+          <Card className="divide-y divide-vault-700/50 bg-vault-800">
+            {/* Biometric */}
+            <div className="p-4 space-y-3">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="text-vault-600">
-                    <Icons.Fingerprint />
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${bioAvailable ? 'text-vault-accent bg-vault-accent/10' : 'text-vault-600 bg-vault-700/30'}`}>
+                    <Icons.Fingerprint className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="font-medium text-vault-300">
+                    <h4 className={`font-medium text-sm ${bioAvailable ? 'text-white' : 'text-vault-500'}`}>
                       Biometric Unlock
                     </h4>
-                    <p className="text-xs text-vault-500">
-                      Not supported on this device
+                    <p className="text-xs text-vault-400">
+                      {bioAvailable ? 'Use fingerprint or face unlock' : 'Not supported on device'}
                     </p>
                   </div>
                 </div>
+                {bioAvailable && (
+                    <Toggle
+                        checked={bioEnabled}
+                        onChange={handleBioToggle}
+                        disabled={bioToggleLoading}
+                    />
+                )}
               </div>
-            )}
-            {/* Decoy */}
+              {bioToggleError && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 flex items-start gap-2 animate-fade-in">
+                  <Icons.Alert className="text-red-500 w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-red-200">{bioToggleError}</p>
+                </div>
+              )}
+              {bioError && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 flex items-start gap-2 animate-fade-in">
+                  <Icons.Alert className="text-amber-500 w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-200">{bioError}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Decoy Mode */}
             <div className="p-4 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="text-amber-500">
-                    <Icons.Shield />
+                  <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500">
+                    <Icons.Shield className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="font-medium text-white">Coercion Defense</h4>
+                    <h4 className="font-medium text-sm text-white">Coercion Defense</h4>
                     <p className="text-xs text-vault-400">
                       Setup a decoy vault with fake files
                     </p>
@@ -280,19 +290,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   }
                 />
               </div>
+              
               {showDecoySetup && !hasDecoy && (
-                <div className="bg-vault-900/50 rounded-xl border border-vault-700 p-4 space-y-4 animate-in slide-in-from-top-2">
-                  <div className="flex items-start gap-2 text-amber-500/90 bg-amber-500/10 p-3 rounded-lg text-xs mb-2 leading-relaxed">
-                    <Icons.Alert />
+                <div className="bg-vault-900/50 rounded-xl border border-vault-700 p-4 space-y-4 animate-slide-up">
+                  <div className="flex items-start gap-3 text-amber-500/90 bg-amber-500/10 p-3 rounded-lg text-xs mb-2 leading-relaxed">
+                    <Icons.Alert className="w-5 h-5 shrink-0" />
                     <p>
                       Your decoy credential type must match your main vault (
-                      {lockType}) to effectively fool intruders.
+                      <span className="font-bold">{lockType}</span>) to effectively fool intruders.
                     </p>
                   </div>
                   <div className="space-y-3">
                     <div className="space-y-1">
-                      <label className="text-xs font-bold text-vault-400">
-                        DECOY {lockType}
+                      <label className="text-[10px] font-bold text-vault-400 uppercase tracking-wider">
+                        Decoy {lockType}
                       </label>
                       <PasswordInput
                         value={decoyForm.pass}
@@ -308,8 +319,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs font-bold text-vault-400">
-                        CONFIRM DECOY
+                      <label className="text-[10px] font-bold text-vault-400 uppercase tracking-wider">
+                        Confirm Decoy
                       </label>
                       <PasswordInput
                         value={decoyForm.confirm}
@@ -323,7 +334,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       />
                     </div>
                     {decoyError && (
-                      <p className="text-xs text-red-400 font-medium">
+                      <p className="text-xs text-red-400 font-medium animate-fade-in">
                         {decoyError}
                       </p>
                     )}
@@ -340,7 +351,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       Cancel
                     </Button>
                     <Button
-                      className="flex-1 bg-amber-600 hover:bg-amber-700 text-white"
+                      className="flex-1 bg-amber-600 hover:bg-amber-700 text-white border-none"
                       onClick={handleDecoySubmit}
                     >
                       Enable Decoy
@@ -351,14 +362,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </Card>
         </section>
+
         {/* Change Credentials */}
         <section className="space-y-3">
           <h3 className="text-xs font-bold text-vault-500 uppercase tracking-wider px-1">
             Authentication
           </h3>
-          <Card className="p-6 space-y-6">
+          <Card className="p-5 space-y-6 bg-vault-800">
             <div className="space-y-4">
-              <div className="bg-vault-900/50 p-1 rounded-lg border border-vault-700">
+              <div className="bg-vault-900/50 p-1 rounded-xl border border-vault-700">
                 <SegmentedControl
                   options={[
                     { label: "PIN Code", value: "PIN" },
@@ -370,8 +382,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
               <div className="space-y-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-vault-400">
-                    CURRENT {lockType}
+                  <label className="text-[10px] font-bold text-vault-400 uppercase tracking-wider">
+                    Current {lockType}
                   </label>
                   <PasswordInput
                     value={form.old}
@@ -383,8 +395,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
                 <hr className="border-vault-700/50" />
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-vault-400">
-                    NEW {form.type}
+                  <label className="text-[10px] font-bold text-vault-400 uppercase tracking-wider">
+                    New {form.type}
                   </label>
                   <PasswordInput
                     value={form.new}
@@ -400,8 +412,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-vault-400">
-                    CONFIRM NEW
+                  <label className="text-[10px] font-bold text-vault-400 uppercase tracking-wider">
+                    Confirm New
                   </label>
                   <PasswordInput
                     value={form.confirm}
@@ -413,13 +425,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   />
                 </div>
                 {credError && (
-                  <p className="text-xs text-red-400 font-medium bg-red-500/10 p-2 rounded">
+                  <p className="text-xs text-red-400 font-medium bg-red-500/10 p-2 rounded-lg border border-red-500/20 animate-fade-in">
                     {credError}
                   </p>
                 )}
               </div>
               <Button
-                className="w-full"
+                className="w-full h-12 text-sm"
                 onClick={handleUpdate}
                 disabled={isProcessing || !form.old || !form.new}
               >
@@ -428,18 +440,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </Card>
         </section>
+
+        {/* Danger Zone */}
         <section className="space-y-3">
           <h3 className="text-xs font-bold text-red-500/70 uppercase tracking-wider px-1">
             Danger Zone
           </h3>
-          <Card className="p-6 border-red-500/20 bg-red-500/5 flex flex-col gap-4">
+          <Card className="p-6 border-red-500/20 bg-red-900/10 flex flex-col gap-4">
             <div className="flex items-start gap-3">
               <div className="text-red-500 mt-1">
-                <Icons.Alert />
+                <Icons.Alert className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="font-bold text-red-100">Factory Reset</h4>
-                <p className="text-xs text-red-200/60 leading-relaxed">
+                <h4 className="font-bold text-red-100 text-sm">Factory Reset</h4>
+                <p className="text-xs text-red-200/60 leading-relaxed mt-1">
                   This will permanently delete all encrypted files, intruder
                   logs, and settings. This action cannot be undone.
                 </p>
@@ -451,16 +465,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </Card>
         </section>
       </main>
+
+      {/* Biometric Password Prompt Modal */}
       {bioPasswordPrompt && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-sm p-6 space-y-6">
-            <div>
-              <h3 className="font-bold text-lg text-white">
-                Enable Biometric Unlock
+        <div className="absolute inset-0 bg-black/60 z-50 backdrop-blur-sm flex items-center justify-center p-4">
+          <Card className="w-full max-w-sm p-6 space-y-6 animate-shake bg-vault-800 border-vault-700 shadow-2xl">
+            <div className="text-center">
+              <h3 className="font-bold text-xl text-white">
+                Confirm Password
               </h3>
-              <p className="text-sm text-vault-300 mt-1">
-                Enter your password to securely store it for biometric
-                authentication
+              <p className="text-sm text-vault-400 mt-2">
+                Enter your password to enable biometric unlock.
               </p>
             </div>
             <PasswordInput
@@ -471,13 +486,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             />
             {bioPasswordError && (
               <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 flex items-start gap-2">
-                <Icons.Alert className="text-red-500 flex-shrink-0 mt-0.5" />
+                <Icons.Alert className="text-red-500 w-4 h-4 flex-shrink-0 mt-0.5" />
                 <p className="text-xs text-red-200">{bioPasswordError}</p>
               </div>
             )}
             <div className="flex gap-3">
               <Button
-                variant="outline"
+                variant="ghost"
                 className="flex-1"
                 onClick={() => {
                   setBioPasswordPrompt(false);
@@ -498,7 +513,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </Card>
         </div>
-      )}{" "}
+      )}
     </div>
   );
 };
