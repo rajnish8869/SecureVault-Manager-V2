@@ -15,7 +15,7 @@ interface VaultHandle {
   currentFolderId?: string;
   setCurrentFolderId: (id?: string) => void;
   createFolder: (name: string) => Promise<void>;
-  importFile: (file: File) => Promise<any>;
+  importFile: (file: File) => Promise<VaultItem>;
   deleteItems: (ids: string[]) => Promise<void>;
   exportFile: (id: string) => Promise<any>;
   previewFile: (id: string) => Promise<any>;
@@ -61,7 +61,8 @@ export const VaultDashboard = forwardRef<VaultDashboardHandle, VaultDashboardPro
     title: string;
     message: string;
     action: () => void;
-    variant?: "danger" | "info";
+    variant?: "danger" | "info" | "success";
+    type?: "ALERT" | "CONFIRM";
   }>({ isOpen: false, title: "", message: "", action: () => {} });
 
   const clearSelection = () => {
@@ -107,6 +108,17 @@ export const VaultDashboard = forwardRef<VaultDashboardHandle, VaultDashboardPro
     }
   }), [menuItem, showAddMenu, showFolderDialog, confirmConfig.isOpen, selectionMode, vault.breadcrumbs, vault.setCurrentFolderId]);
 
+  const showAlert = (title: string, message: string, variant: "info" | "danger" | "success" = "info") => {
+    setConfirmConfig({
+      isOpen: true,
+      title,
+      message,
+      variant,
+      type: "ALERT",
+      action: () => {}
+    });
+  };
+
   const handleSelect = (id: string) => {
     const newSet = new Set(selectedIds);
     if (newSet.has(id)) newSet.delete(id);
@@ -122,13 +134,14 @@ export const VaultDashboard = forwardRef<VaultDashboardHandle, VaultDashboardPro
       title: "Delete Items?",
       message: `Permanently delete ${selectedIds.size} items? This cannot be undone.`,
       variant: "danger",
+      type: "CONFIRM",
       action: async () => {
         onProcessing(true, "Deleting items...");
         try {
           await vault.deleteItems(Array.from(selectedIds));
           clearSelection();
         } catch (e) {
-          alert("Delete failed");
+          showAlert("Error", "Delete failed", "danger");
         } finally {
           onProcessing(false);
         }
@@ -141,6 +154,7 @@ export const VaultDashboard = forwardRef<VaultDashboardHandle, VaultDashboardPro
       isOpen: true,
       title: "Export Files?",
       message: `Decrypt and export ${selectedIds.size} files to public storage?`,
+      type: "CONFIRM",
       action: async () => {
         onProcessing(true, "Exporting files...");
         let count = 0;
@@ -153,7 +167,7 @@ export const VaultDashboard = forwardRef<VaultDashboardHandle, VaultDashboardPro
               count++;
             } catch (e) {}
           }
-          alert(`Exported ${count} files.`);
+          showAlert("Export Complete", `Exported ${count} files.`, "success");
           clearSelection();
         } finally {
           onProcessing(false);
@@ -172,12 +186,13 @@ export const VaultDashboard = forwardRef<VaultDashboardHandle, VaultDashboardPro
       title: "Delete Item?",
       message: `Permanently delete "${name}"?`,
       variant: "danger",
+      type: "CONFIRM",
       action: async () => {
         onProcessing(true, "Deleting item...");
         try {
           await vault.deleteItems([id]);
         } catch (e) {
-          alert("Delete failed");
+          showAlert("Error", "Delete failed", "danger");
         } finally {
           onProcessing(false);
         }
@@ -193,13 +208,14 @@ export const VaultDashboard = forwardRef<VaultDashboardHandle, VaultDashboardPro
       isOpen: true,
       title: "Export File?",
       message: `Decrypt and export "${menuItem.originalName}"?`,
+      type: "CONFIRM",
       action: async () => {
         onProcessing(true, "Decrypting & Exporting...");
         try {
           await vault.exportFile(id);
-          alert("Exported successfully");
+          showAlert("Success", "Exported successfully", "success");
         } catch (e) {
-          alert("Export failed");
+          showAlert("Error", "Export failed", "danger");
         } finally {
           onProcessing(false);
         }
@@ -231,7 +247,7 @@ export const VaultDashboard = forwardRef<VaultDashboardHandle, VaultDashboardPro
       }
       setClipboard(null);
     } catch (e) {
-      alert("Operation failed");
+      showAlert("Error", "Operation failed", "danger");
     } finally {
       onProcessing(false);
     }
@@ -241,7 +257,16 @@ export const VaultDashboard = forwardRef<VaultDashboardHandle, VaultDashboardPro
     if (!e.target.files?.length) return;
     onPickStart();
     const files = Array.from(e.target.files || []) as File[];
-    onProcessing(true, "Preparing import...");
+    
+    // Clear input immediately to ensure `onChange` fires again for same files
+    e.target.value = "";
+
+    let successCount = 0;
+    let failCount = 0;
+    const failedNames: string[] = [];
+
+    onProcessing(true, "Initializing Import...");
+    
     try {
       for (let i = 0; i < files.length; i++) {
         const f = files[i];
@@ -249,13 +274,44 @@ export const VaultDashboard = forwardRef<VaultDashboardHandle, VaultDashboardPro
           true,
           `Encrypting & Importing...\n${f.name} (${i + 1}/${files.length})`
         );
-        await vault.importFile(f);
+        try {
+            const item = await vault.importFile(f);
+            if(item) successCount++;
+        } catch (err: any) {
+            console.error("Import error", err);
+            failCount++;
+            failedNames.push(f.name);
+        }
       }
     } catch (err: any) {
-      alert("Import failed: " + err);
+      showAlert("Import Error", "Critical Import Error: " + err, "danger");
     } finally {
       onProcessing(false);
-      e.target.value = "";
+      
+      // Determine Result Status
+      const hasSuccess = successCount > 0;
+      const hasFailures = failCount > 0;
+      
+      let message = "";
+      if (hasSuccess) {
+          message += `Successfully encrypted ${successCount} file(s) into the Vault.`;
+          // Explicit Deletion Notice for Security
+          message += `\n\n⚠️ SECURITY NOTICE:\nThe original files still exist in your device gallery/storage.\n\nAndroid security restrictions prevent automatic deletion of original files. Please delete them manually to complete the securing process.`;
+      }
+      if (hasFailures) {
+          message += `\n\nFailed to import ${failCount} file(s):\n${failedNames.slice(0,3).join('\n')}${failedNames.length > 3 ? '\n...' : ''}`;
+      }
+
+      if (hasSuccess || hasFailures) {
+          setConfirmConfig({
+              isOpen: true,
+              title: hasSuccess ? (hasFailures ? "Import Completed with Errors" : "Import Successful") : "Import Failed",
+              message: message,
+              variant: hasSuccess ? "success" : "danger",
+              type: "ALERT",
+              action: () => {}, // Just dismiss
+          });
+      }
     }
   };
 
@@ -581,7 +637,7 @@ export const VaultDashboard = forwardRef<VaultDashboardHandle, VaultDashboardPro
       />
       <DialogModal
         isOpen={confirmConfig.isOpen}
-        type="CONFIRM"
+        type={confirmConfig.type || (confirmConfig.variant === 'success' ? 'ALERT' : 'CONFIRM')}
         title={confirmConfig.title}
         message={confirmConfig.message}
         variant={confirmConfig.variant}

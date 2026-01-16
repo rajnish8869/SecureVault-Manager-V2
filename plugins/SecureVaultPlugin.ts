@@ -108,6 +108,22 @@ class SecureVaultFacade implements EncryptionPlugin {
     } else {
       await StorageService.saveFile(id, options.fileBlob, this.currentKey);
     }
+    
+    // Verify Integrity before updating cache
+    try {
+        const fileInfo = await StorageService.getFileInfo(id);
+        // Basic check: if chunked, metadata exists. If not, normal file exists.
+        // We can't easily check encrypted size match without logic overhead, 
+        // but ensuring it saved without error is Step 1.
+        if (ChunkedFileService.shouldChunk(options.fileBlob.size) && !fileInfo) {
+             throw new Error("Integrity Check Failed: Chunked file metadata missing");
+        }
+    } catch(e) {
+        // Cleanup if verification fails
+        await this.deleteVaultItems({ ids: [id] }); 
+        throw new Error("File Verification Failed: " + (e instanceof Error ? e.message : String(e)));
+    }
+
     this.vaultCache.unshift(newItem);
     await StorageService.saveMetadata(
       this.currentMode,
