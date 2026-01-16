@@ -72,7 +72,11 @@ export interface EncryptionPlugin {
     enabled: boolean;
     password?: string;
   }): Promise<void>;
-  authenticateBiometric(): Promise<{ success: boolean; password?: string }>;
+  authenticateBiometric(): Promise<{
+    success: boolean;
+    password?: string;
+    error?: string;
+  }>;
   resetVault(password: string): Promise<{ success: boolean }>;
   enablePrivacyScreen(options: { enabled: boolean }): Promise<void>;
   setDecoyCredential(options: {

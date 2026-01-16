@@ -67,15 +67,6 @@ export const useAuth = () => {
     });
     setLockType(newType);
   };
-  const triggerBiometrics = async () => {
-    try {
-      const res = await SecureVault.authenticateBiometric();
-      if (res.success && res.password) {
-        return res.password;
-      }
-    } catch (e) {}
-    return null;
-  };
   const toggleBiometrics = async (enabled: boolean, password?: string) => {
     try {
       await SecureVault.setBiometricStatus({ enabled, password });
@@ -86,6 +77,30 @@ export const useAuth = () => {
       setBioError(errorMsg);
       throw e;
     }
+  };
+  const triggerBiometrics = async () => {
+    setError(null);
+    try {
+      const res = await SecureVault.authenticateBiometric();
+      if (res.success) {
+        if (res.password) {
+          return res.password;
+        } else {
+          // Success but no password -> Corruption or native plugin error
+          const msg = "Biometric credentials missing. Please use password.";
+          setError(msg);
+          // Auto-disable to prevent loop and user frustration
+          toggleBiometrics(false).catch(() => {});
+        }
+      } else {
+        if (res.error && !res.error.toLowerCase().includes("cancel")) {
+          setError(res.error);
+        }
+      }
+    } catch (e: any) {
+      setError(e.message || "Biometric error");
+    }
+    return null;
   };
   const setupDecoy = async (decoyPass: string, masterPass: string) => {
     await SecureVault.setDecoyCredential({

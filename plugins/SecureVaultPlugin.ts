@@ -421,9 +421,14 @@ class SecureVaultFacade implements EncryptionPlugin {
   async authenticateBiometric(): Promise<{
     success: boolean;
     password?: string;
+    error?: string;
   }> {
     const result = await AuthService.authenticateBiometric();
-    return { success: result.success, password: result.password };
+    return {
+      success: result.success,
+      password: result.password,
+      error: result.error,
+    };
   }
   async setDecoyCredential(options: {
     decoyPassword: string;
@@ -518,7 +523,10 @@ class SecureVaultFacade implements EncryptionPlugin {
           });
           await StorageService.deletePendingIntruder(file.name);
         } catch (err) {
-          console.error(`Failed to import pending intruder file ${file.name}`, err);
+          console.error(
+            `Failed to import pending intruder file ${file.name}`,
+            err
+          );
           // Optional: Delete corrupted file to prevent blocking future logs?
           // await StorageService.deletePendingIntruder(file.name);
         }

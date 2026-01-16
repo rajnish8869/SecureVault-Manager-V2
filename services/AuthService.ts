@@ -95,23 +95,31 @@ export class AuthService {
       throw e;
     }
   }
-  static async authenticateBiometric(): Promise<{ success: boolean; password?: string }> {
+  static async authenticateBiometric(): Promise<{
+    success: boolean;
+    password?: string;
+    error?: string;
+  }> {
     try {
       const enabled = await this.getBiometricEnabled();
       if (!enabled) {
         console.warn("[AuthService] Biometrics not enabled");
-        return { success: false };
+        return { success: false, error: "Biometrics not enabled" };
       }
       const available = await this.checkBiometricAvailability();
       if (!available) {
         console.warn("[AuthService] Biometrics not available");
-        return { success: false };
+        return { success: false, error: "Biometrics not available" };
       }
       const result = await BiometricService.authenticate();
-      return { success: result.success, password: result.password };
-    } catch (e) {
+      return {
+        success: result.success,
+        password: result.password,
+        error: result.errorMessage,
+      };
+    } catch (e: any) {
       console.error("[AuthService] Biometric authentication error:", e);
-      return { success: false };
+      return { success: false, error: e.message || "Authentication error" };
     }
   }
   static async getBiometricPassword(): Promise<string | null> {
