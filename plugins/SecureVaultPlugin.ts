@@ -12,7 +12,7 @@ import { CameraService } from "../services/CameraService";
 import { ChunkedFileService } from "../services/ChunkedFileService";
 import { InputValidator } from "../services/InputValidator";
 import { Capacitor } from "@capacitor/core";
-import { Filesystem, Directory } from "@capacitor/filesystem";
+import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
 class SecureVaultFacade implements EncryptionPlugin {
   private currentKey: CryptoKey | null = null;
   private currentMode: "REAL" | "DECOY" = "REAL";
@@ -427,11 +427,77 @@ class SecureVaultFacade implements EncryptionPlugin {
   async previewFile(options: {
     id: string;
     password: string;
-  }): Promise<{ uri: string }> {
+  }): Promise<{ uri: string; nativeUri?: string }> {
     if (!this.sessionActive || !this.currentKey)
       throw new Error("Vault Locked");
     const item = this.vaultCache.find((i) => i.id === options.id);
     if (!item) throw new Error("File not found");
+
+    // On native platforms, write the decrypted chunks directly to a cache file
+    // using appendFile to avoid loading the whole file into JS memory (OOM prevention).
+    if (Capacitor.isNativePlatform()) {
+      const safeName = `preview_${item.id}_${Date.now()}_${item.originalName}`.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const path = safeName;
+      const directory = Directory.Cache;
+
+      try {
+        // 1. Initialize empty file (overwrite if exists)
+        await Filesystem.writeFile({
+          path,
+          directory,
+          data: "",
+          encoding: Encoding.UTF8,
+        });
+
+        // 2. Helper to append a chunk blob to the file
+        const appendChunk = async (chunkBlob: Blob) => {
+          return new Promise<void>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = async () => {
+              try {
+                const base64 = (reader.result as string).split(",")[1];
+                await Filesystem.appendFile({
+                  path,
+                  directory,
+                  data: base64,
+                });
+                resolve();
+              } catch (e) {
+                reject(e);
+              }
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(chunkBlob);
+          });
+        };
+
+        // 3. Process the file (chunked or whole) via streaming
+        await ChunkedFileService.processFile(
+          options.id,
+          this.currentKey,
+          async (chunk, index, total) => {
+            await appendChunk(chunk);
+          }
+        );
+
+        // 4. Get the URI for the finished file
+        const uriResult = await Filesystem.getUri({
+          directory,
+          path,
+        });
+        const nativeUri = uriResult.uri;
+        const webUri = (Capacitor as any).convertFileSrc
+          ? (Capacitor as any).convertFileSrc(nativeUri)
+          : nativeUri;
+
+        return { uri: webUri, nativeUri };
+      } catch (e) {
+        console.error("Preview file generation failed", e);
+        throw new Error("Failed to generate preview file");
+      }
+    }
+
+    // Web fallback: return object URL (memory intensive but acceptable for desktop browsers)
     let blob: Blob;
     if (ChunkedFileService.shouldChunk(item.size)) {
       blob = await ChunkedFileService.loadFileChunked(
@@ -441,54 +507,6 @@ class SecureVaultFacade implements EncryptionPlugin {
     } else {
       blob = await StorageService.loadFile(options.id, this.currentKey);
     }
-    // On native platforms, write the decrypted blob to a cache file and return a file URI
-    if (Capacitor.isNativePlatform()) {
-      const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve) => {
-        reader.onloadend = () => {
-          const res = reader.result as string;
-          resolve(res.split(",")[1]);
-        };
-        reader.readAsDataURL(blob);
-      });
-      const base64Data = await base64Promise;
-      const safeName = `preview_${item.id}_${Date.now()}_${
-        item.originalName
-      }`.replace(/[^a-zA-Z0-9._-]/g, "_");
-      // Write to cache directory so native plugins can access it
-      const writeResult = await Filesystem.writeFile({
-        path: safeName,
-        data: base64Data,
-        directory: Directory.Cache,
-      });
-      // Try to get a URI for the written file
-      try {
-        const uriResult = await Filesystem.getUri({
-          directory: Directory.Cache,
-          path: safeName,
-        });
-        const nativeUri = uriResult.uri;
-        // Provide both a webview-safe URI and the native URI for native plugins
-        const webUri = (Capacitor as any).convertFileSrc
-          ? (Capacitor as any).convertFileSrc(nativeUri)
-          : nativeUri;
-        return { uri: webUri, nativeUri } as any;
-      } catch (e) {
-        // Fallback: some Capacitor versions return a 'uri' from writeFile
-        const maybeUri = (writeResult as any).uri || (writeResult as any).uri;
-        if (maybeUri) {
-          const nativeUri = maybeUri;
-          const webUri = (Capacitor as any).convertFileSrc
-            ? (Capacitor as any).convertFileSrc(nativeUri)
-            : nativeUri;
-          return { uri: webUri, nativeUri } as any;
-        }
-        // As last resort, return a blob URL (no nativeUri available)
-        return { uri: URL.createObjectURL(blob) };
-      }
-    }
-
-    // Web fallback: return object URL
     return { uri: URL.createObjectURL(blob) };
   }
   async updateCredentials(options: {

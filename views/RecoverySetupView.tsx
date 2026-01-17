@@ -2,19 +2,18 @@ import React, {
   forwardRef,
   useImperativeHandle,
   useState,
-  useRef,
 } from "react";
 import { CredentialValidationService } from "../services/CredentialValidationService";
-import Button from "../components/ui/Button";
-import SegmentedControl from "../components/ui/SegmentedControl";
-import PinDisplay from "../components/shared/PinDisplay";
-import NumberPad from "../components/shared/NumberPad";
-import PasswordInput from "../components/shared/PasswordInput";
-import Input from "../components/ui/Input";
-import Icon from "../components/icons/Icons";
+import { Button } from "../components/ui/Button";
+import { SegmentedControl } from "../components/ui/SegmentedControl";
+import { PinDisplay } from "../components/shared/PinDisplay";
+import { NumberPad } from "../components/shared/NumberPad";
+import { PasswordInput } from "../components/shared/PasswordInput";
+import { Input } from "../components/ui/Input";
+import { Icons } from "../components/icons/Icons";
 import { LockType } from "../types";
 
-interface RecoverySetupViewHandle {
+export interface RecoverySetupViewHandle {
   handleBack: () => boolean;
 }
 
@@ -30,7 +29,7 @@ const RecoverySetupView = forwardRef<
   const [step, setStep] = useState<"type" | "pin-1" | "pin-2" | "password">(
     "type"
   );
-  const [lockType, setLockType] = useState<LockType>("pin");
+  const [lockType, setLockType] = useState<LockType>("PIN");
   const [pin, setPin] = useState("");
   const [pinConfirm, setPinConfirm] = useState("");
   const [password, setPassword] = useState("");
@@ -62,30 +61,35 @@ const RecoverySetupView = forwardRef<
 
   const handlePinDigit = (digit: string) => {
     if (step === "pin-1") {
-      if (digit === "backspace") {
-        setPin(pin.slice(0, -1));
-      } else if (pin.length < 6) {
+      if (pin.length < 6) {
         const newPin = pin + digit;
         setPin(newPin);
         const strength =
           CredentialValidationService.calculatePinStrength(newPin);
-        setPinStrength(strength);
+        setPinStrength(strength.score);
         setError("");
       }
     } else if (step === "pin-2") {
-      if (digit === "backspace") {
-        setPinConfirm(pinConfirm.slice(0, -1));
-      } else if (pinConfirm.length < 6) {
+      if (pinConfirm.length < 6) {
         setPinConfirm(pinConfirm + digit);
         setError("");
       }
     }
   };
 
+  const handleBackspace = () => {
+    if (step === "pin-1") {
+       setPin(prev => prev.slice(0, -1));
+       if (pin.length <= 1) setPinStrength(0);
+    } else if (step === "pin-2") {
+       setPinConfirm(prev => prev.slice(0, -1));
+    }
+  };
+
   const handlePinNext = () => {
     const validation = CredentialValidationService.validatePin(pin);
-    if (!validation.isValid) {
-      setError(validation.message);
+    if (!validation.valid) {
+      setError(validation.feedback[0] || "Invalid PIN");
       return;
     }
     setStep("pin-2");
@@ -97,15 +101,13 @@ const RecoverySetupView = forwardRef<
       setError("PINs do not match");
       return;
     }
-    onSetup(pin, "pin");
+    onSetup(pin, "PIN");
   };
 
-  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
+  const handlePasswordChange = (value: string) => {
     setPassword(value);
-    const strength =
-      CredentialValidationService.calculatePasswordStrength(value);
-    setPasswordStrength(strength);
+    const strength = CredentialValidationService.calculatePasswordStrength(value);
+    setPasswordStrength(strength.score);
     setError("");
   };
 
@@ -118,20 +120,20 @@ const RecoverySetupView = forwardRef<
 
   const handlePasswordSubmit = () => {
     const validation = CredentialValidationService.validatePassword(password);
-    if (!validation.isValid) {
-      setError(validation.message);
+    if (!validation.valid) {
+      setError(validation.feedback[0] || "Invalid Password");
       return;
     }
     if (password !== passwordConfirm) {
       setError("Passwords do not match");
       return;
     }
-    onSetup(password, "password");
+    onSetup(password, "PASSWORD");
   };
 
   const lockTypeOptions = [
-    { label: "PIN", value: "pin" },
-    { label: "Password", value: "password" },
+    { label: "PIN", value: "PIN" },
+    { label: "Password", value: "PASSWORD" },
   ];
 
   const getStrengthColor = (strength: number) => {
@@ -169,7 +171,7 @@ const RecoverySetupView = forwardRef<
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="w-16 h-16 mx-auto mb-4 bg-vault-accent/20 rounded-full flex items-center justify-center">
-            <Icon icon="lock" size={32} className="text-vault-accent" />
+            <Icons.Lock className="w-8 h-8 text-vault-accent" />
           </div>
           <h1 className="text-3xl font-bold text-slate-100 mb-2">
             Set New Credentials
@@ -187,7 +189,7 @@ const RecoverySetupView = forwardRef<
               value={lockType}
               onChange={(value) => {
                 setLockType(value as LockType);
-                setStep(value === "pin" ? "pin-1" : "password");
+                setStep(value === "PIN" ? "pin-1" : "password");
                 setError("");
               }}
             />
@@ -200,7 +202,7 @@ const RecoverySetupView = forwardRef<
               <p className="text-slate-300 text-center mb-4">
                 Enter your new PIN:
               </p>
-              <PinDisplay pin={pin} />
+              <PinDisplay value={pin} />
               {pin.length > 0 && (
                 <div className="mt-4 text-center">
                   <p
@@ -220,7 +222,14 @@ const RecoverySetupView = forwardRef<
               </div>
             )}
 
-            <NumberPad onDigit={handlePinDigit} />
+            <NumberPad 
+                onPress={handlePinDigit} 
+                leftSlot={
+                    <button onClick={handleBackspace} className="w-20 h-20 flex items-center justify-center text-vault-500 hover:text-white">
+                        <Icons.Backspace className="w-8 h-8" />
+                    </button>
+                }
+            />
 
             <Button
               onClick={handlePinNext}
@@ -247,7 +256,7 @@ const RecoverySetupView = forwardRef<
               <p className="text-slate-300 text-center mb-4">
                 Confirm your PIN:
               </p>
-              <PinDisplay pin={pinConfirm} />
+              <PinDisplay value={pinConfirm} />
             </div>
 
             {error && (
@@ -256,7 +265,14 @@ const RecoverySetupView = forwardRef<
               </div>
             )}
 
-            <NumberPad onDigit={handlePinDigit} />
+            <NumberPad 
+                onPress={handlePinDigit} 
+                leftSlot={
+                    <button onClick={handleBackspace} className="w-20 h-20 flex items-center justify-center text-vault-500 hover:text-white">
+                        <Icons.Backspace className="w-8 h-8" />
+                    </button>
+                }
+            />
 
             <Button
               onClick={handlePinConfirm}
@@ -292,7 +308,6 @@ const RecoverySetupView = forwardRef<
                 value={password}
                 onChange={handlePasswordChange}
                 placeholder="Enter password"
-                autoFocus
               />
               {password.length > 0 && (
                 <div className="mt-3 text-center">

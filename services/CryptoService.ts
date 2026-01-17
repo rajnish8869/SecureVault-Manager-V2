@@ -57,8 +57,11 @@ export class CryptoService {
   static bufferToBase64(buffer: Uint8Array): string {
     let binary = '';
     const len = buffer.byteLength;
-    for (let i = 0; i < len; i++) {
-      binary += String.fromCharCode(buffer[i]);
+    const chunkSize = 0x8000; // 32KB chunks to prevent stack overflow
+    // Process in chunks to handle larger buffers efficiently
+    for (let i = 0; i < len; i += chunkSize) {
+      const subarray = buffer.subarray(i, Math.min(i + chunkSize, len));
+      binary += String.fromCharCode.apply(null, Array.from(subarray));
     }
     return window.btoa(binary);
   }

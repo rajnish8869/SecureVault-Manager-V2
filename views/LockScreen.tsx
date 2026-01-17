@@ -60,7 +60,7 @@ export const LockScreen: React.FC<LockScreenProps> = ({
   }, [lockoutState.isLocked]);
 
   useEffect(() => {
-    let pollInterval: NodeJS.Timeout | null = null;
+    let pollInterval: any = null;
 
     pollInterval = setInterval(() => {
       const currentState = RateLimitService.getState();

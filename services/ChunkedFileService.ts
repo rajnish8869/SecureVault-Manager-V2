@@ -118,6 +118,33 @@ export class ChunkedFileService {
       throw error;
     }
   }
+
+  /**
+   * Streams decrypted file chunks one by one to a callback.
+   * This is memory efficient for large files as it avoids loading the entire file into RAM.
+   */
+  static async processFile(
+    fileId: string,
+    encryptionKey: CryptoKey,
+    onChunk: (chunk: Blob, index: number, total: number) => Promise<void>
+  ): Promise<void> {
+    const fileInfo = await StorageService.getFileInfo(fileId);
+    
+    if (fileInfo && fileInfo.isChunked) {
+      const totalChunks = fileInfo.chunks;
+      for (let i = 0; i < totalChunks; i++) {
+        const chunk = await StorageService.loadFileChunk(fileId, i, encryptionKey);
+        await onChunk(chunk, i, totalChunks);
+        // Small delay to allow GC to catch up if needed
+        if (i % 10 === 0) await new Promise(resolve => setTimeout(resolve, 0));
+      }
+    } else {
+      // Not chunked, load regular file
+      const blob = await StorageService.loadFile(fileId, encryptionKey);
+      await onChunk(blob, 0, 1);
+    }
+  }
+
   static getChunkSize(): number {
     return this.CHUNK_SIZE;
   }

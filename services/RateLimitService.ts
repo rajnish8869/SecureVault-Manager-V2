@@ -21,7 +21,7 @@ export class RateLimitService {
     lockoutLevel: 0,
   };
 
-  private static lockoutTimer: NodeJS.Timeout | null = null;
+  private static lockoutTimer: any = null;
 
   static getState(): LockoutState {
     return { ...this.lockoutState };
