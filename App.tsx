@@ -18,14 +18,26 @@ import { useVault } from "./hooks/useVault";
 import { useIntruder } from "./hooks/useIntruder";
 import { SetupView, type SetupViewHandle } from "./views/SetupView";
 import { LockScreen } from "./views/LockScreen";
-import { VaultDashboard, type VaultDashboardHandle } from "./views/VaultDashboard";
+import {
+  VaultDashboard,
+  type VaultDashboardHandle,
+} from "./views/VaultDashboard";
 import { SettingsView, type SettingsViewHandle } from "./views/SettingsView";
 import { IntruderLogsView } from "./views/IntruderLogsView";
+import { RecoveryKeyView } from "./components/RecoveryKeyView";
+import {
+  RecoverySetupView,
+  type RecoverySetupViewHandle,
+} from "./components/RecoverySetupView";
+import { RateLimitService } from "./services/RateLimitService";
+import { AuthService } from "./services/AuthService";
 
 type AppState =
   | "LOADING"
   | "SETUP"
   | "LOCKED"
+  | "RECOVERY"
+  | "RECOVERY_SETUP"
   | "VAULT"
   | "SETTINGS"
   | "INTRUDER_LOGS";
@@ -62,11 +74,12 @@ export default function App() {
   const auth = useAuth();
   const vault = useVault(password);
   const intruder = useIntruder();
-  
+
   // Refs for child components to handle back navigation locally
   const vaultDashboardRef = useRef<VaultDashboardHandle>(null);
   const settingsRef = useRef<SettingsViewHandle>(null);
   const setupRef = useRef<SetupViewHandle>(null);
+  const recoverySetupRef = useRef<RecoverySetupViewHandle>(null);
 
   const [dialog, setDialog] = useState<DialogState>({ isOpen: false });
   const closeDialog = () => setDialog({ ...dialog, isOpen: false });
@@ -100,7 +113,7 @@ export default function App() {
   const [viewer, setViewer] = useState<ViewerState | null>(null);
   const [isDecoySession, setIsDecoySession] = useState(false);
   const failedAttempts = useRef(0);
-  
+
   const [showIntruderModal, setShowIntruderModal] = useState(false);
   const [intruderSettingsForm, setIntruderSettingsForm] =
     useState<IntruderSettings>({
@@ -111,9 +124,11 @@ export default function App() {
 
   useEffect(() => {
     if (!auth.isInitialized) {
-      SecureVault.isInitialized().then((res) => {
+      SecureVault.isInitialized().then(async (res) => {
         if (res.initialized) {
-          auth.checkInit().then(() => setAppState("LOCKED"));
+          await auth.checkInit();
+          await AuthService.loadLockoutState();
+          setAppState("LOCKED");
         } else {
           setAppState("SETUP");
         }
@@ -141,7 +156,6 @@ export default function App() {
         setAppState("LOCKED");
         setPassword(null);
         setIsDecoySession(false);
-        failedAttempts.current = 0;
         setViewer(null);
         SecureVault.enablePrivacyScreen({ enabled: false });
       }
@@ -155,67 +169,72 @@ export default function App() {
 
   // Back Button Handling
   useEffect(() => {
-    const backHandler = CapacitorApp.addListener('backButton', ({ canGoBack }) => {
-        // 1. Close Global Overlays (Highest Priority)
+    const backHandler = CapacitorApp.addListener(
+      "backButton",
+      ({ canGoBack }) => {
         if (viewer) {
-            setViewer(null);
-            SecureVault.enablePrivacyScreen({ enabled: false });
-            return;
+          setViewer(null);
+          SecureVault.enablePrivacyScreen({ enabled: false });
+          return;
         }
         if (dialog.isOpen) {
-            closeDialog();
-            return;
+          closeDialog();
+          return;
         }
         if (showIntruderModal) {
-            setShowIntruderModal(false);
-            return;
+          setShowIntruderModal(false);
+          return;
         }
 
-        // 2. Delegate to Active View Logic
-        switch(appState) {
-            case 'VAULT':
-                if (vaultDashboardRef.current?.handleBack()) return;
-                // If at root of vault, confirm exit? Or just minimize?
-                // Standard Android behavior is to minimize/exit at root.
-                if (!isPickingFile.current) {
-                    CapacitorApp.exitApp();
-                }
-                break;
-            case 'SETTINGS':
-                // Check if settings has local state to pop (decoy setup, bio prompt)
-                if (settingsRef.current?.handleBack()) return;
-                // Otherwise go back to Vault
-                setAppState('VAULT');
-                break;
-            case 'INTRUDER_LOGS':
-                // Go back to Settings view (standard navigation flow)
-                setAppState('SETTINGS');
-                break;
-            case 'SETUP':
-                // Handle back steps in setup (e.g. from Confirm PIN back to Create PIN)
-                if (setupRef.current?.handleBack()) return;
-                // If at start of setup, exit
-                CapacitorApp.exitApp();
-                break;
-            case 'LOCKED':
-                // Prevent bypassing lock screen
-                CapacitorApp.exitApp();
-                break;
-            case 'LOADING':
-                // Do nothing or exit
-                break;
+        switch (appState) {
+          case "VAULT":
+            if (vaultDashboardRef.current?.handleBack()) return;
+            if (!isPickingFile.current) {
+              CapacitorApp.exitApp();
+            }
+            break;
+          case "SETTINGS":
+            if (settingsRef.current?.handleBack()) return;
+            setAppState("VAULT");
+            break;
+          case "INTRUDER_LOGS":
+            setAppState("SETTINGS");
+            break;
+          case "RECOVERY":
+            setAppState("LOCKED");
+            break;
+          case "RECOVERY_SETUP":
+            if (recoverySetupRef.current?.handleBack()) return;
+            setAppState("LOCKED");
+            break;
+          case "SETUP":
+            if (setupRef.current?.handleBack()) return;
+            CapacitorApp.exitApp();
+            break;
+          case "LOCKED":
+            CapacitorApp.exitApp();
+            break;
+          case "LOADING":
+            break;
         }
-    });
+      }
+    );
 
     return () => {
-        backHandler.then(h => h.remove());
+      backHandler.then((h) => h.remove());
     };
   }, [appState, viewer, dialog.isOpen, showIntruderModal]);
 
-  const handleSetup = async (pw: string, type: LockType) => {
+  const handleSetup = async (
+    pw: string,
+    type: LockType,
+    recoveryKey: string
+  ) => {
     setIsProcessing(true);
     try {
       await auth.setup(pw, type);
+      await AuthService.setRecoveryKey(recoveryKey);
+      RateLimitService.resetAttempts();
       setAppState("LOCKED");
       showAlert("Success", "Vault setup complete.");
     } catch (e: any) {
@@ -224,20 +243,84 @@ export default function App() {
       setIsProcessing(false);
     }
   };
+
   const handleUnlock = async (pw: string) => {
     setIsProcessing(true);
+
+    if (RateLimitService.isLockedOut()) {
+      setIsProcessing(false);
+      showAlert("Locked", RateLimitService.getLockoutMessage());
+      return;
+    }
+
     const res = await auth.unlock(pw);
     setIsProcessing(false);
+
     if (res.success) {
       setPassword(pw);
       setIsDecoySession(res.mode === "DECOY");
-      failedAttempts.current = 0;
+      await AuthService.resetFailedAttempts();
       setAppState("VAULT");
     } else {
-      failedAttempts.current++;
-      if (failedAttempts.current % 2 === 0) {
+      await AuthService.recordFailedAttempt();
+      const lockoutState = RateLimitService.getState();
+
+      if (RateLimitService.isLockedOut()) {
+        RateLimitService.startCountdown();
+        showAlert("Too Many Attempts", RateLimitService.getLockoutMessage());
+      }
+
+      if (lockoutState.attemptCount % 2 === 0) {
         intruder.capture();
       }
+    }
+  };
+
+  const handleRecoveryAttempt = () => {
+    if (!AuthService.canAttemptRecovery()) {
+      showAlert(
+        "Recovery Locked",
+        "Too many recovery attempts. Try again later."
+      );
+      return;
+    }
+    setAppState("RECOVERY");
+  };
+
+  const handleRecoveryKeySubmit = async (recoveryKeyInput: string) => {
+    setIsProcessing(true);
+    try {
+      const isValid = await AuthService.verifyRecoveryKey(recoveryKeyInput);
+
+      if (!isValid) {
+        await AuthService.recordRecoveryAttempt();
+        showAlert("Invalid", "Recovery key is incorrect. Try again.");
+        setIsProcessing(false);
+        return;
+      }
+
+      await AuthService.resetRecoveryAttempts();
+      await AuthService.resetFailedAttempts();
+
+      setAppState("RECOVERY_SETUP");
+    } catch (e: any) {
+      showAlert("Error", e.message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleRecoverySetup = async (pw: string, type: LockType) => {
+    setIsProcessing(true);
+    try {
+      await auth.recoverCredentials(pw, type);
+      setPassword(pw);
+      setAppState("VAULT");
+      showAlert("Success", "PIN/Password updated successfully.");
+    } catch (e: any) {
+      showAlert("Error", e.message);
+    } finally {
+      setIsProcessing(false);
     }
   };
   const handleBiometricUnlock = async () => {
@@ -323,10 +406,10 @@ export default function App() {
   return (
     <div className="min-h-screen bg-vault-900 text-slate-100 font-sans">
       {appState === "SETUP" && (
-        <SetupView 
-            ref={setupRef}
-            onSetup={handleSetup} 
-            isProcessing={isProcessing} 
+        <SetupView
+          ref={setupRef}
+          onSetup={handleSetup}
+          isProcessing={isProcessing}
         />
       )}
       {appState === "LOCKED" && (
@@ -334,11 +417,26 @@ export default function App() {
           lockType={auth.lockType}
           onUnlock={handleUnlock}
           onBiometricAuth={handleBiometricUnlock}
+          onRecoveryAttempt={handleRecoveryAttempt}
           error={auth.error}
           clearError={() => auth.setError(null)}
           isProcessing={isProcessing}
           bioEnabled={auth.bioEnabled}
           bioAvailable={auth.bioAvailable}
+        />
+      )}
+      {appState === "RECOVERY" && (
+        <RecoveryKeyView
+          onSubmit={handleRecoveryKeySubmit}
+          onCancel={() => setAppState("LOCKED")}
+          isProcessing={isProcessing}
+        />
+      )}
+      {appState === "RECOVERY_SETUP" && (
+        <RecoverySetupView
+          ref={recoverySetupRef}
+          onSetup={handleRecoverySetup}
+          isProcessing={isProcessing}
         />
       )}
       {appState === "VAULT" && (

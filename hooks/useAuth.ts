@@ -67,6 +67,13 @@ export const useAuth = () => {
     });
     setLockType(newType);
   };
+  const recoverCredentials = async (newPw: string, newType: LockType) => {
+    await SecureVault.recoverCredentials({
+      newPassword: newPw,
+      newType,
+    });
+    setLockType(newType);
+  };
   const toggleBiometrics = async (enabled: boolean, password?: string) => {
     try {
       await SecureVault.setBiometricStatus({ enabled, password });
@@ -131,6 +138,7 @@ export const useAuth = () => {
     setup,
     reset,
     updateCredentials,
+    recoverCredentials,
     triggerBiometrics,
     toggleBiometrics,
     setupDecoy,

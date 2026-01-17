@@ -10,7 +10,9 @@ import { StorageService } from "../services/StorageService";
 import { AuthService } from "../services/AuthService";
 import { CameraService } from "../services/CameraService";
 import { ChunkedFileService } from "../services/ChunkedFileService";
+import { InputValidator } from "../services/InputValidator";
 import { Capacitor } from "@capacitor/core";
+import { Filesystem, Directory } from "@capacitor/filesystem";
 class SecureVaultFacade implements EncryptionPlugin {
   private currentKey: CryptoKey | null = null;
   private currentMode: "REAL" | "DECOY" = "REAL";
@@ -84,12 +86,28 @@ class SecureVaultFacade implements EncryptionPlugin {
   }): Promise<VaultItem> {
     if (!this.sessionActive || !this.currentKey)
       throw new Error("Vault Locked");
+
+    // Validate parentId to prevent directory traversal
+    if (!InputValidator.validateFolderId(options.parentId)) {
+      throw new Error("Invalid parent folder");
+    }
+
+    // Sanitize and validate file name
+    let sanitizedFileName: string;
+    try {
+      sanitizedFileName = InputValidator.sanitizeFileName(options.fileName);
+    } catch (e) {
+      throw new Error(
+        "Invalid file name: " + (e instanceof Error ? e.message : String(e))
+      );
+    }
+
     const id = this.generateUUID();
     const newItem: VaultItem = {
       id: id,
       parentId: options.parentId,
       type: "FILE",
-      originalName: options.fileName,
+      originalName: sanitizedFileName,
       originalPath: "encrypted_storage",
       mimeType: options.fileBlob.type || "application/octet-stream",
       size: options.fileBlob.size,
@@ -97,31 +115,36 @@ class SecureVaultFacade implements EncryptionPlugin {
     };
     if (ChunkedFileService.shouldChunk(options.fileBlob.size)) {
       console.debug(
-        `[SecureVaultPlugin] Importing large file ${options.fileName} using chunked method`
+        `[SecureVaultPlugin] Importing large file ${sanitizedFileName} using chunked method`
       );
       await ChunkedFileService.importFileChunked(
         options.fileBlob,
-        options.fileName,
+        sanitizedFileName,
         id,
         this.currentKey
       );
     } else {
       await StorageService.saveFile(id, options.fileBlob, this.currentKey);
     }
-    
+
     // Verify Integrity before updating cache
     try {
-        const fileInfo = await StorageService.getFileInfo(id);
-        // Basic check: if chunked, metadata exists. If not, normal file exists.
-        // We can't easily check encrypted size match without logic overhead, 
-        // but ensuring it saved without error is Step 1.
-        if (ChunkedFileService.shouldChunk(options.fileBlob.size) && !fileInfo) {
-             throw new Error("Integrity Check Failed: Chunked file metadata missing");
-        }
-    } catch(e) {
-        // Cleanup if verification fails
-        await this.deleteVaultItems({ ids: [id] }); 
-        throw new Error("File Verification Failed: " + (e instanceof Error ? e.message : String(e)));
+      const fileInfo = await StorageService.getFileInfo(id);
+      // Basic check: if chunked, metadata exists. If not, normal file exists.
+      // We can't easily check encrypted size match without logic overhead,
+      // but ensuring it saved without error is Step 1.
+      if (ChunkedFileService.shouldChunk(options.fileBlob.size) && !fileInfo) {
+        throw new Error(
+          "Integrity Check Failed: Chunked file metadata missing"
+        );
+      }
+    } catch (e) {
+      // Cleanup if verification fails
+      await this.deleteVaultItems({ ids: [id] });
+      throw new Error(
+        "File Verification Failed: " +
+          (e instanceof Error ? e.message : String(e))
+      );
     }
 
     this.vaultCache.unshift(newItem);
@@ -138,12 +161,28 @@ class SecureVaultFacade implements EncryptionPlugin {
   }): Promise<VaultItem> {
     if (!this.sessionActive || !this.currentKey)
       throw new Error("Vault Locked");
+
+    // Validate parentId to prevent directory traversal
+    if (!InputValidator.validateFolderId(options.parentId)) {
+      throw new Error("Invalid parent folder");
+    }
+
+    // Sanitize and validate folder name
+    let sanitizedName: string;
+    try {
+      sanitizedName = InputValidator.sanitizeFolderName(options.name);
+    } catch (e) {
+      throw new Error(
+        "Invalid folder name: " + (e instanceof Error ? e.message : String(e))
+      );
+    }
+
     const id = this.generateUUID();
     const folder: VaultItem = {
       id,
       parentId: options.parentId,
       type: "FOLDER",
-      originalName: options.name,
+      originalName: sanitizedName,
       originalPath: "virtual_folder",
       mimeType: "application/vnd.google-apps.folder",
       size: 0,
@@ -163,6 +202,20 @@ class SecureVaultFacade implements EncryptionPlugin {
   }): Promise<{ success: boolean }> {
     if (!this.sessionActive || !this.currentKey)
       throw new Error("Vault Locked");
+
+    // Validate all item IDs
+    for (const id of options.itemIds) {
+      const { valid } = InputValidator.sanitizeFileId(id);
+      if (!valid) {
+        throw new Error("Invalid item ID");
+      }
+    }
+
+    // Validate target parent ID
+    if (!InputValidator.validateFolderId(options.targetParentId)) {
+      throw new Error("Invalid target folder");
+    }
+
     const targetPath = new Set<string>();
     let curr = options.targetParentId;
     while (curr) {
@@ -197,6 +250,20 @@ class SecureVaultFacade implements EncryptionPlugin {
   }): Promise<{ success: boolean }> {
     if (!this.sessionActive || !this.currentKey)
       throw new Error("Vault Locked");
+
+    // Validate all item IDs
+    for (const id of options.itemIds) {
+      const { valid } = InputValidator.sanitizeFileId(id);
+      if (!valid) {
+        throw new Error("Invalid item ID");
+      }
+    }
+
+    // Validate target parent ID
+    if (!InputValidator.validateFolderId(options.targetParentId)) {
+      throw new Error("Invalid target folder");
+    }
+
     const copies: VaultItem[] = [];
     for (const id of options.itemIds) {
       const item = this.vaultCache.find((i) => i.id === id);
@@ -273,6 +340,15 @@ class SecureVaultFacade implements EncryptionPlugin {
   }): Promise<{ success: boolean }> {
     if (!this.sessionActive || !this.currentKey)
       throw new Error("Vault Locked");
+
+    // Validate all item IDs
+    for (const id of options.ids) {
+      const { valid } = InputValidator.sanitizeFileId(id);
+      if (!valid) {
+        throw new Error("Invalid item ID");
+      }
+    }
+
     const idsToDelete = new Set(options.ids);
     let added = true;
     while (added) {
@@ -365,6 +441,54 @@ class SecureVaultFacade implements EncryptionPlugin {
     } else {
       blob = await StorageService.loadFile(options.id, this.currentKey);
     }
+    // On native platforms, write the decrypted blob to a cache file and return a file URI
+    if (Capacitor.isNativePlatform()) {
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve) => {
+        reader.onloadend = () => {
+          const res = reader.result as string;
+          resolve(res.split(",")[1]);
+        };
+        reader.readAsDataURL(blob);
+      });
+      const base64Data = await base64Promise;
+      const safeName = `preview_${item.id}_${Date.now()}_${
+        item.originalName
+      }`.replace(/[^a-zA-Z0-9._-]/g, "_");
+      // Write to cache directory so native plugins can access it
+      const writeResult = await Filesystem.writeFile({
+        path: safeName,
+        data: base64Data,
+        directory: Directory.Cache,
+      });
+      // Try to get a URI for the written file
+      try {
+        const uriResult = await Filesystem.getUri({
+          directory: Directory.Cache,
+          path: safeName,
+        });
+        const nativeUri = uriResult.uri;
+        // Provide both a webview-safe URI and the native URI for native plugins
+        const webUri = (Capacitor as any).convertFileSrc
+          ? (Capacitor as any).convertFileSrc(nativeUri)
+          : nativeUri;
+        return { uri: webUri, nativeUri } as any;
+      } catch (e) {
+        // Fallback: some Capacitor versions return a 'uri' from writeFile
+        const maybeUri = (writeResult as any).uri || (writeResult as any).uri;
+        if (maybeUri) {
+          const nativeUri = maybeUri;
+          const webUri = (Capacitor as any).convertFileSrc
+            ? (Capacitor as any).convertFileSrc(nativeUri)
+            : nativeUri;
+          return { uri: webUri, nativeUri } as any;
+        }
+        // As last resort, return a blob URL (no nativeUri available)
+        return { uri: URL.createObjectURL(blob) };
+      }
+    }
+
+    // Web fallback: return object URL
     return { uri: URL.createObjectURL(blob) };
   }
   async updateCredentials(options: {
@@ -414,6 +538,53 @@ class SecureVaultFacade implements EncryptionPlugin {
     }
     await AuthService.updateCredentials(newSalt, newVerifier, options.newType);
     await StorageService.deleteFile("meta_decoy.json").catch(() => {});
+    this.currentKey = newKey;
+    return { success: true };
+  }
+  async recoverCredentials(options: {
+    newPassword: string;
+    newType: LockType;
+  }): Promise<{ success: boolean }> {
+    const salt = await AuthService.getSalt();
+    if (!salt) throw new Error("Vault not initialized");
+    const oldKey = await CryptoService.deriveKey(
+      this.currentKey ? "" : "",
+      salt
+    );
+    const allItems = await StorageService.loadMetadata("REAL", oldKey).catch(
+      () => []
+    );
+    const newSalt = await CryptoService.generateSalt();
+    const newVerifier = await CryptoService.hashForVerification(
+      options.newPassword,
+      newSalt
+    );
+    const newKey = await CryptoService.deriveKey(options.newPassword, newSalt);
+    await StorageService.saveMetadata("REAL", allItems, newKey);
+    for (const item of allItems) {
+      if (item.type === "FOLDER") continue;
+      try {
+        let fileBlob: Blob;
+        if (ChunkedFileService.shouldChunk(item.size)) {
+          fileBlob = await ChunkedFileService.loadFileChunked(item.id, oldKey);
+        } else {
+          fileBlob = await StorageService.loadFile(item.id, oldKey);
+        }
+        if (ChunkedFileService.shouldChunk(item.size)) {
+          await ChunkedFileService.importFileChunked(
+            fileBlob,
+            item.originalName,
+            item.id,
+            newKey
+          );
+        } else {
+          await StorageService.saveFile(item.id, fileBlob, newKey);
+        }
+      } catch (e) {
+        console.error("Failed to re-encrypt file during recovery", e);
+      }
+    }
+    await AuthService.updateCredentials(newSalt, newVerifier, options.newType);
     this.currentKey = newKey;
     return { success: true };
   }

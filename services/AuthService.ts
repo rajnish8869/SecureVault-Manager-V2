@@ -2,13 +2,20 @@ import { Preferences } from "@capacitor/preferences";
 import { Capacitor } from "@capacitor/core";
 import { CryptoService } from "./CryptoService";
 import { BiometricService } from "./BiometricService";
+import { RateLimitService } from "./RateLimitService";
+import { RecoveryKeyService } from "./RecoveryKeyService";
 import type { LockType, IntruderSettings } from "../types";
+
 const SALT_KEY = "vault_salt";
 const VERIFIER_REAL = "vault_verifier_real";
 const VERIFIER_DECOY = "vault_verifier_decoy";
 const TYPE_KEY = "vault_lock_type";
 const BIO_ENABLED_KEY = "vault_bio_enabled";
 const INTRUDER_CONFIG_KEY = "vault_intruder_config";
+const RECOVERY_KEY_HASH = "vault_recovery_key_hash";
+const RECOVERY_KEY_SALT = "vault_recovery_key_salt";
+const LOCKOUT_STATE_KEY = "vault_lockout_state";
+const RECOVERY_ATTEMPTS_KEY = "vault_recovery_attempts";
 export class AuthService {
   static async isInitialized(): Promise<boolean> {
     const { value } = await Preferences.get({ key: VERIFIER_REAL });
@@ -145,5 +152,99 @@ export class AuthService {
   }
   static async wipeAll() {
     await Preferences.clear();
+    RateLimitService.resetAttempts();
+  }
+
+  static async generateRecoveryKey(): Promise<{
+    key: string;
+    type: "ALPHANUMERIC" | "MNEMONIC";
+  }> {
+    const recoveryKey = RecoveryKeyService.generateRecoveryKey("MNEMONIC");
+    return recoveryKey;
+  }
+
+  static async setRecoveryKey(recoveryKeyString: string): Promise<void> {
+    const salt = await CryptoService.generateSalt();
+    const hash = await RecoveryKeyService.hashRecoveryKey(
+      recoveryKeyString,
+      salt
+    );
+    await Preferences.set({ key: RECOVERY_KEY_HASH, value: hash });
+    await Preferences.set({ key: RECOVERY_KEY_SALT, value: salt });
+  }
+
+  static async verifyRecoveryKey(recoveryKeyString: string): Promise<boolean> {
+    const saltRes = await Preferences.get({ key: RECOVERY_KEY_SALT });
+    const hashRes = await Preferences.get({ key: RECOVERY_KEY_HASH });
+
+    if (!saltRes.value || !hashRes.value) {
+      return false;
+    }
+
+    const inputHash = await RecoveryKeyService.hashRecoveryKey(
+      recoveryKeyString,
+      saltRes.value
+    );
+    return inputHash === hashRes.value;
+  }
+
+  static async hasRecoveryKey(): Promise<boolean> {
+    const res = await Preferences.get({ key: RECOVERY_KEY_HASH });
+    return !!res.value;
+  }
+
+  static async loadLockoutState(): Promise<void> {
+    const res = await Preferences.get({ key: LOCKOUT_STATE_KEY });
+    if (res.value) {
+      RateLimitService.deserializeState(res.value);
+    }
+  }
+
+  static async saveLockoutState(): Promise<void> {
+    const state = RateLimitService.getState();
+    await Preferences.set({
+      key: LOCKOUT_STATE_KEY,
+      value: RateLimitService.serializeState(),
+    });
+  }
+
+  static async recordFailedAttempt(): Promise<void> {
+    RateLimitService.recordFailedAttempt();
+    await this.saveLockoutState();
+  }
+
+  static async resetFailedAttempts(): Promise<void> {
+    RateLimitService.resetAttempts();
+    await this.saveLockoutState();
+  }
+
+  static isLockedOut(): boolean {
+    return RateLimitService.isLockedOut();
+  }
+
+  static getLockoutState() {
+    return RateLimitService.getState();
+  }
+
+  static async recordRecoveryAttempt(): Promise<void> {
+    const res = await Preferences.get({ key: RECOVERY_ATTEMPTS_KEY });
+    const attempts = res.value ? parseInt(res.value) : 0;
+    await Preferences.set({
+      key: RECOVERY_ATTEMPTS_KEY,
+      value: (attempts + 1).toString(),
+    });
+  }
+
+  static async getRecoveryAttempts(): Promise<number> {
+    const res = await Preferences.get({ key: RECOVERY_ATTEMPTS_KEY });
+    return res.value ? parseInt(res.value) : 0;
+  }
+
+  static async resetRecoveryAttempts(): Promise<void> {
+    await Preferences.remove({ key: RECOVERY_ATTEMPTS_KEY });
+  }
+
+  static canAttemptRecovery(): boolean {
+    return RateLimitService.canAttemptRecovery(3);
   }
 }

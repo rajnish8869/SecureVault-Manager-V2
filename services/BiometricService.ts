@@ -1,6 +1,7 @@
 import { Preferences } from "@capacitor/preferences";
 import { Capacitor } from "@capacitor/core";
 import { NativeBiometric } from "@capgo/capacitor-native-biometric";
+import { SecureStorageService } from "./SecureStorageService";
 
 export enum BiometricError {
   NOT_AVAILABLE = "NOT_AVAILABLE",
@@ -206,32 +207,64 @@ export class BiometricService {
   }
 
   /**
-   * Minimal change: do NOT rely on NativeBiometric.setCredentials (which caused
-   * failures on newer Android/Samsung devices). Store the password in Preferences.
+   * Securely stores the biometric password using encrypted storage.
+   * The password is encrypted with AES-GCM before being persisted to device storage.
+   * This prevents attackers from simply reading the stored password from device files.
    *
-   * NOTE: Storing a plain password in Preferences is less secure — consider
-   * using Android Keystore / secure storage in the future.
+   * Future enhancement: Use platform-specific secure storage
+   * - Android: Android Keystore (hardware-backed encryption if available)
+   * - iOS: iOS Keychain
    */
   static async storePassword(password: string): Promise<void> {
     try {
-      // store password in Preferences (minimal change)
-      await Preferences.set({ key: BIO_PASSWORD_KEY, value: password });
+      // Store password using encrypted storage instead of plain text
+      await SecureStorageService.setSecure(BIO_PASSWORD_KEY, password);
 
-      // keep marker that biometric password exists (for backwards compatibility)
+      // Keep marker that biometric password exists (for backwards compatibility)
       await Preferences.set({ key: BIO_CAPABILITY_CHECK_KEY, value: "true" });
+
+      console.log("[BiometricService] Password stored securely");
     } catch (e) {
-      console.error("[BiometricService] Error storing password:", e);
+      console.error("[BiometricService] Error storing password securely:", e);
       throw e;
     }
   }
 
   static async getStoredPassword(): Promise<string | null> {
     try {
-      const passwordStored = await Preferences.get({ key: BIO_PASSWORD_KEY });
-      if (!passwordStored || !passwordStored.value) {
-        return null;
+      // First, try to retrieve from secure storage (encrypted)
+      const encryptedPassword = await SecureStorageService.getSecure(
+        BIO_PASSWORD_KEY
+      );
+      if (encryptedPassword) {
+        return encryptedPassword;
       }
-      return passwordStored.value || null;
+
+      // Fallback: Check for plain-text password from old installations
+      // and migrate it to secure storage
+      const plainResult = await Preferences.get({ key: BIO_PASSWORD_KEY });
+      if (plainResult && plainResult.value) {
+        console.warn(
+          "[BiometricService] Found plain-text password, migrating to secure storage"
+        );
+        try {
+          await SecureStorageService.setSecure(
+            BIO_PASSWORD_KEY,
+            plainResult.value
+          );
+          // Remove old plain-text value after migration
+          await Preferences.remove({ key: BIO_PASSWORD_KEY });
+          return plainResult.value;
+        } catch (migrationError) {
+          console.error(
+            "[BiometricService] Failed to migrate password to secure storage:",
+            migrationError
+          );
+          // Fall through and return null
+        }
+      }
+
+      return null;
     } catch (e) {
       console.error("[BiometricService] Error retrieving password:", e);
       return null;
@@ -240,9 +273,16 @@ export class BiometricService {
 
   static async clearStoredPassword(): Promise<void> {
     try {
-      // remove stored password and capability marker
+      // Remove encrypted password
+      await SecureStorageService.removeSecure(BIO_PASSWORD_KEY);
+
+      // Also clear any old plain-text password (for migration)
       await Preferences.remove({ key: BIO_PASSWORD_KEY });
+
+      // Remove capability marker
       await Preferences.remove({ key: BIO_CAPABILITY_CHECK_KEY });
+
+      console.log("[BiometricService] Stored password cleared");
     } catch (e) {
       console.error("[BiometricService] Error clearing password:", e);
     }
