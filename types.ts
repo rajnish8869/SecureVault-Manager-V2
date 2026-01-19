@@ -60,6 +60,15 @@ export interface EncryptionPlugin {
     id: string;
     password: string;
   }): Promise<{ uri: string }>;
+  // New Streaming Methods
+  getFileChunk(options: {
+    id: string;
+    index: number;
+  }): Promise<{ data: Uint8Array }>;
+  getFileInfo(options: {
+    id: string;
+  }): Promise<{ totalChunks: number; size: number }>;
+  
   getLockType(): Promise<{ type: LockType }>;
   updateCredentials(options: {
     oldPassword: string;

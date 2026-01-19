@@ -131,8 +131,6 @@ class SecureVaultFacade implements EncryptionPlugin {
     try {
       const fileInfo = await StorageService.getFileInfo(id);
       // Basic check: if chunked, metadata exists. If not, normal file exists.
-      // We can't easily check encrypted size match without logic overhead,
-      // but ensuring it saved without error is Step 1.
       if (ChunkedFileService.shouldChunk(options.fileBlob.size) && !fileInfo) {
         throw new Error(
           "Integrity Check Failed: Chunked file metadata missing"
@@ -433,15 +431,12 @@ class SecureVaultFacade implements EncryptionPlugin {
     const item = this.vaultCache.find((i) => i.id === options.id);
     if (!item) throw new Error("File not found");
 
-    // On native platforms, write the decrypted chunks directly to a cache file
-    // using appendFile to avoid loading the whole file into JS memory (OOM prevention).
     if (Capacitor.isNativePlatform()) {
       const safeName = `preview_${item.id}_${Date.now()}_${item.originalName}`.replace(/[^a-zA-Z0-9._-]/g, "_");
       const path = safeName;
       const directory = Directory.Cache;
 
       try {
-        // 1. Initialize empty file (overwrite if exists)
         await Filesystem.writeFile({
           path,
           directory,
@@ -449,7 +444,6 @@ class SecureVaultFacade implements EncryptionPlugin {
           encoding: Encoding.UTF8,
         });
 
-        // 2. Helper to append a chunk blob to the file
         const appendChunk = async (chunkBlob: Blob) => {
           return new Promise<void>((resolve, reject) => {
             const reader = new FileReader();
@@ -471,7 +465,6 @@ class SecureVaultFacade implements EncryptionPlugin {
           });
         };
 
-        // 3. Process the file (chunked or whole) via streaming
         await ChunkedFileService.processFile(
           options.id,
           this.currentKey,
@@ -480,7 +473,6 @@ class SecureVaultFacade implements EncryptionPlugin {
           }
         );
 
-        // 4. Get the URI for the finished file
         const uriResult = await Filesystem.getUri({
           directory,
           path,
@@ -497,7 +489,6 @@ class SecureVaultFacade implements EncryptionPlugin {
       }
     }
 
-    // Web fallback: return object URL (memory intensive but acceptable for desktop browsers)
     let blob: Blob;
     if (ChunkedFileService.shouldChunk(item.size)) {
       blob = await ChunkedFileService.loadFileChunked(
@@ -509,6 +500,39 @@ class SecureVaultFacade implements EncryptionPlugin {
     }
     return { uri: URL.createObjectURL(blob) };
   }
+
+  // --- NEW STREAMING METHODS ---
+  async getFileInfo(options: { id: string }): Promise<{ totalChunks: number; size: number }> {
+    if (!this.sessionActive || !this.currentKey) throw new Error("Vault Locked");
+    const item = this.vaultCache.find((i) => i.id === options.id);
+    if (!item) throw new Error("File not found");
+
+    const fileInfo = await StorageService.getFileInfo(options.id);
+    return {
+      totalChunks: fileInfo ? fileInfo.chunks : 1,
+      size: item.size
+    };
+  }
+
+  async getFileChunk(options: { id: string; index: number }): Promise<{ data: Uint8Array }> {
+    if (!this.sessionActive || !this.currentKey) throw new Error("Vault Locked");
+    
+    let blob: Blob;
+    const fileInfo = await StorageService.getFileInfo(options.id);
+    
+    if (fileInfo && fileInfo.isChunked) {
+        blob = await StorageService.loadFileChunk(options.id, options.index, this.currentKey);
+    } else {
+        // Not chunked, return whole file as chunk 0
+        if (options.index !== 0) throw new Error("Invalid chunk index");
+        blob = await StorageService.loadFile(options.id, this.currentKey);
+    }
+
+    const arrayBuffer = await blob.arrayBuffer();
+    return { data: new Uint8Array(arrayBuffer) };
+  }
+  // -----------------------------
+
   async updateCredentials(options: {
     oldPassword: string;
     newPassword: string;
@@ -732,8 +756,6 @@ class SecureVaultFacade implements EncryptionPlugin {
             `Failed to import pending intruder file ${file.name}`,
             err
           );
-          // Optional: Delete corrupted file to prevent blocking future logs?
-          // await StorageService.deletePendingIntruder(file.name);
         }
       }
     } catch (e) {

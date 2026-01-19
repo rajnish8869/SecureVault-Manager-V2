@@ -2,24 +2,28 @@ import React, { useState, useEffect } from "react";
 import type { VaultItem, FileTypeCategory } from "../../types";
 import { Icons, getFileIcon } from "../icons/Icons";
 import { FileTypeDetector } from "../../services/FileTypeDetector";
+import { StreamableVideo } from "./StreamableVideo";
 
 interface FileViewerProps {
   item: VaultItem;
   uri: string | null;
   onClose: () => void;
   onOpenNative?: () => void;
+  onLoadFull?: () => void;
 }
 
 export const FileViewer: React.FC<FileViewerProps> = ({
   item,
-  uri,
+  uri, // Note: uri might be null if we are streaming
   onClose,
   onOpenNative,
+  onLoadFull,
 }) => {
   const [category, setCategory] = useState<FileTypeCategory>("UNKNOWN");
   const [textContent, setTextContent] = useState<string>("Loading...");
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [useStreaming, setUseStreaming] = useState(false);
 
   useEffect(() => {
     const detectType = async () => {
@@ -30,12 +34,17 @@ export const FileViewer: React.FC<FileViewerProps> = ({
           item.originalName
         );
         setCategory(detection.category);
+        
+        // Only attempt streaming if no URI provided (meaning App decided it's streamable)
+        if (detection.category === "VIDEO" && !uri) { 
+            setUseStreaming(true);
+        }
       } catch (err) {
         console.warn("Failed to detect file type:", err);
       }
     };
     detectType();
-  }, [item.mimeType, item.originalName]);
+  }, [item.mimeType, item.originalName, item.size, uri]);
 
   useEffect(() => {
     if (category === "TEXT" && uri) {
@@ -58,7 +67,9 @@ export const FileViewer: React.FC<FileViewerProps> = ({
     }
   }, [category, uri]);
 
-  if (!uri) return null;
+  // If streaming, we don't need URI immediately.
+  // If not streaming and no URI, we are in a broken state or loading state managed by parent.
+  if (!uri && !useStreaming) return null;
 
   const isImage = category === "IMAGE";
   const isVideo = category === "VIDEO";
@@ -73,8 +84,8 @@ export const FileViewer: React.FC<FileViewerProps> = ({
     <div className="fixed inset-0 bg-black z-[60] flex flex-col h-dvh w-full animate-fade-in">
       
       {/* HEADER: Safe Area Top */}
-      <div className="absolute top-0 left-0 right-0 z-50 bg-gradient-to-b from-black/80 to-transparent pt-safe transition-all duration-300">
-        <div className="px-4 py-3 flex items-center justify-between">
+      <div className="absolute top-0 left-0 right-0 z-50 bg-gradient-to-b from-black/80 to-transparent pt-safe transition-all duration-300 pointer-events-none">
+        <div className="px-4 py-3 flex items-center justify-between pointer-events-auto">
             <button
                 onClick={onClose}
                 className="w-10 h-10 -ml-2 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/20 active:scale-95 transition-all border border-white/10"
@@ -82,10 +93,10 @@ export const FileViewer: React.FC<FileViewerProps> = ({
                 <Icons.X className="w-6 h-6" />
             </button>
             
-            {!FileTypeDetector.canPreviewInApp(category) && onOpenNative && (
+            {onOpenNative && (
                 <button
                     onClick={onOpenNative}
-                    className="px-4 py-2 rounded-full bg-blue-600 text-white font-bold text-xs hover:bg-blue-700 active:scale-95 transition-all shadow-lg flex items-center gap-2"
+                    className="px-4 py-2 rounded-full bg-blue-600/80 backdrop-blur-md text-white font-bold text-xs hover:bg-blue-600 active:scale-95 transition-all shadow-lg flex items-center gap-2 border border-white/10"
                 >
                     <Icons.Download className="w-4 h-4" /> Open External
                 </button>
@@ -119,7 +130,7 @@ export const FileViewer: React.FC<FileViewerProps> = ({
         )}
 
         {/* Image */}
-        {isImage && !error && (
+        {isImage && !error && uri && (
           <img
             src={uri}
             alt="Preview"
@@ -128,19 +139,42 @@ export const FileViewer: React.FC<FileViewerProps> = ({
           />
         )}
 
-        {/* Video */}
+        {/* Video - Streaming or Standard */}
         {isVideo && !error && (
-          <video
-            src={uri}
-            controls
-            autoPlay
-            className="w-full max-h-full"
-            onError={() => setError("Failed to load video")}
-          />
+            useStreaming ? (
+                <StreamableVideo 
+                    id={item.id} 
+                    mimeType={item.mimeType} 
+                    onError={(msg) => {
+                        console.warn("Streaming failed, initiating fallback", msg);
+                        setUseStreaming(false); 
+                        if (onLoadFull) {
+                            onLoadFull();
+                        } else {
+                            setError("Video format not supported for streaming.");
+                        }
+                    }}
+                />
+            ) : (
+              uri ? (
+                <video
+                    src={uri}
+                    controls
+                    autoPlay
+                    className="w-full max-h-full"
+                    onError={() => setError("Failed to load video")}
+                />
+              ) : (
+                  <div className="text-white flex flex-col items-center gap-4">
+                      <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                      <span>Loading full video...</span>
+                  </div>
+              )
+            )
         )}
 
         {/* Audio */}
-        {isAudio && !error && (
+        {isAudio && !error && uri && (
           <div className="w-full max-w-sm bg-vault-900/80 backdrop-blur-xl p-8 rounded-3xl border border-vault-700 shadow-2xl mx-4">
             <div className="flex justify-center mb-6">
               <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white shadow-glow">
@@ -164,7 +198,7 @@ export const FileViewer: React.FC<FileViewerProps> = ({
         )}
 
         {/* PDF */}
-        {isPdf && !error && (
+        {isPdf && !error && uri && (
           <iframe
             src={uri}
             className="w-full h-full bg-white"
@@ -199,7 +233,7 @@ export const FileViewer: React.FC<FileViewerProps> = ({
 
       {/* FOOTER METADATA: Safe Area Bottom */}
       {(isImage || isVideo) && !error && (
-        <div className="absolute bottom-0 left-0 right-0 z-50 bg-gradient-to-t from-black/90 via-black/50 to-transparent pb-safe pt-12">
+        <div className="absolute bottom-0 left-0 right-0 z-50 bg-gradient-to-t from-black/90 via-black/50 to-transparent pb-safe pt-12 pointer-events-none">
             <div className="px-6 pb-6 text-center">
                 <h4 className="text-white font-medium text-sm truncate opacity-90">{item.originalName}</h4>
                 <p className="text-xs text-white/50 font-mono mt-1">

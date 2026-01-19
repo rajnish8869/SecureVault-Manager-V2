@@ -60,6 +60,7 @@ export const useVault = (password: string | null) => {
     if (!password) throw new Error("No session");
     return await SecureVault.exportFile({ id, password });
   };
+  // Modified previewFile to be optional for streaming
   const previewFile = async (id: string) => {
     if (!password) throw new Error("No session");
     await SecureVault.enablePrivacyScreen({ enabled: true });

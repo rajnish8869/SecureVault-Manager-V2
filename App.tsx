@@ -335,8 +335,22 @@ export default function App() {
       }, 500);
     }
   };
+  
   const handleView = async (item: any) => {
+    // Only use streaming on Web for large files. 
+    // On Native, we use previewFile() which writes to a temp file and plays natively (much more reliable for non-fragmented MP4).
+    const isNative = Capacitor.isNativePlatform();
+    const isLargeVideo = !isNative && item.mimeType.startsWith('video/') && item.size > 50 * 1024 * 1024;
+    
+    if (isLargeVideo) {
+        // Skip decryption, just pass item. FileViewer will handle streaming logic.
+        setViewer({ item, uri: null });
+        return;
+    }
+
+    // Default path: Full decrypt (Memory Blob on Web, Temp File on Native)
     setIsProcessing(true);
+    setProcessStatus("Preparing preview...");
     try {
       const { uri } = await vault.previewFile(item.id);
       setViewer({ item, uri });
@@ -344,8 +358,41 @@ export default function App() {
       showAlert("Error", "Could not preview: " + e.message);
     } finally {
       setIsProcessing(false);
+      setProcessStatus("");
     }
   };
+
+  // Fallback handler if streaming fails
+  const handleLoadFull = async () => {
+      if(!viewer?.item) return;
+      setIsProcessing(true);
+      setProcessStatus("Streaming unavailable. Loading full video...");
+      try {
+          const { uri } = await vault.previewFile(viewer.item.id);
+          setViewer({ ...viewer, uri });
+      } catch (e: any) {
+          showAlert("Preview Failed", "Could not load video: " + e.message);
+      } finally {
+          setIsProcessing(false);
+          setProcessStatus("");
+      }
+  };
+
+  const handleNativeOpen = async () => {
+      if(!viewer) return;
+      setIsProcessing(true);
+      setProcessStatus("Preparing for external app...");
+      try {
+          const { exportedPath } = await vault.exportFile(viewer.item.id);
+          showAlert("Exported", `File exported to: ${exportedPath}`);
+      } catch (e: any) {
+          showAlert("Error", e.message);
+      } finally {
+          setIsProcessing(false);
+          setProcessStatus("");
+      }
+  };
+
   const handleUpdateCreds = async (
     old: string,
     newPw: string,
@@ -583,6 +630,8 @@ export default function App() {
             setViewer(null);
             SecureVault.enablePrivacyScreen({ enabled: false });
           }}
+          onOpenNative={handleNativeOpen}
+          onLoadFull={handleLoadFull}
         />
       )}
     </div>
