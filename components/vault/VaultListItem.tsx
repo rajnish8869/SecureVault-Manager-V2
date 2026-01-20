@@ -170,7 +170,9 @@ export const VaultListItem: React.FC<VaultListItemProps> = ({
     };
   }, [item.id, isThumbnailable, item.type, isImage, isVideo, isApk]);
 
-  const handlePress = () => {
+  const handlePress = (e: any) => {
+    // Prevent default to avoid ghost clicks or double firing if needed,
+    // though usually handled by hook logic.
     if (selectionMode) {
       onSelect(item.id);
     } else {
@@ -196,7 +198,7 @@ export const VaultListItem: React.FC<VaultListItemProps> = ({
     <div
       {...longPressProps}
       className={`
-        relative flex items-center p-3 mb-2 rounded-2xl transition-all duration-200 border
+        relative flex items-center p-3 mb-2 rounded-2xl transition-all duration-200 border select-none touch-pan-y
         ${
           isSelected
             ? "bg-blue-500/10 border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.1)]"
@@ -205,7 +207,7 @@ export const VaultListItem: React.FC<VaultListItemProps> = ({
       `}
     >
       {/* Icon Area */}
-      <div className="shrink-0 relative">
+      <div className="shrink-0 relative pointer-events-none">
         <div
           className={`
             w-12 h-12 rounded-xl flex items-center justify-center text-2xl transition-all overflow-hidden
@@ -245,7 +247,7 @@ export const VaultListItem: React.FC<VaultListItemProps> = ({
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 min-w-0 px-4">
+      <div className="flex-1 min-w-0 px-4 pointer-events-none">
         <h4
           className={`text-sm font-semibold truncate leading-tight ${
             isSelected ? "text-blue-400" : "text-slate-200"
@@ -271,7 +273,7 @@ export const VaultListItem: React.FC<VaultListItemProps> = ({
       {/* Menu Button (Only non-selection mode) */}
       {!selectionMode && (
         <button
-          className="w-10 h-10 flex items-center justify-center rounded-full text-vault-500 hover:text-white hover:bg-vault-700/50 active:bg-vault-700 transition-colors"
+          className="w-10 h-10 flex items-center justify-center rounded-full text-vault-500 hover:text-white hover:bg-vault-700/50 active:bg-vault-700 transition-colors pointer-events-auto"
           onClick={(e) => {
             e.stopPropagation();
             onMenu(item);

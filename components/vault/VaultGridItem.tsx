@@ -204,7 +204,7 @@ export const VaultGridItem: React.FC<VaultGridItemProps> = ({
     <div
       {...longPressProps}
       className={`
-        relative flex flex-col items-center p-3 rounded-2xl transition-all duration-200 border aspect-square justify-between
+        relative flex flex-col items-center p-3 rounded-2xl transition-all duration-200 border aspect-square justify-between select-none touch-pan-y
         ${
           isSelected
             ? "bg-blue-500/10 border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.1)]"
@@ -213,7 +213,7 @@ export const VaultGridItem: React.FC<VaultGridItemProps> = ({
       `}
     >
       {/* Icon Area */}
-      <div className="flex-1 flex items-center justify-center w-full relative">
+      <div className="flex-1 flex items-center justify-center w-full relative pointer-events-none">
         <div
           className={`
             w-14 h-14 rounded-2xl flex items-center justify-center text-3xl transition-all overflow-hidden
@@ -249,7 +249,7 @@ export const VaultGridItem: React.FC<VaultGridItemProps> = ({
       </div>
 
       {/* Content Area */}
-      <div className="w-full text-center mt-2">
+      <div className="w-full text-center mt-2 pointer-events-none">
         <h4
           className={`text-xs font-semibold truncate leading-tight w-full ${
             isSelected ? "text-blue-400" : "text-slate-200"
@@ -269,7 +269,7 @@ export const VaultGridItem: React.FC<VaultGridItemProps> = ({
       {/* Menu Button (Only non-selection mode) - Floating top right */}
       {!selectionMode && (
         <button
-          className="absolute top-1 right-1 w-8 h-8 flex items-center justify-center rounded-full text-vault-500 hover:text-white hover:bg-vault-700/50 active:bg-vault-700 transition-colors"
+          className="absolute top-1 right-1 w-8 h-8 flex items-center justify-center rounded-full text-vault-500 hover:text-white hover:bg-vault-700/50 active:bg-vault-700 transition-colors pointer-events-auto"
           onClick={(e) => {
             e.stopPropagation();
             onMenu(item);
