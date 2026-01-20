@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import type { VaultItem } from "../../types";
 import { Icons, getFileIcon } from "../icons/Icons";
 import { useLongPress } from "../../hooks/useLongPress";
@@ -75,12 +75,10 @@ export const VaultGridItem: React.FC<VaultGridItemProps> = ({
         };
 
         video.addEventListener("loadeddata", () => {
-          // Seek to 0.5s or nearest
           try {
             if (video.duration > 0.5) video.currentTime = 0.5;
             else video.currentTime = 0;
           } catch (e) {
-            // some browsers restrict seek before play; try capture after a short delay
             setTimeout(() => handleSeek(), 250);
           }
         });
@@ -92,7 +90,6 @@ export const VaultGridItem: React.FC<VaultGridItemProps> = ({
 
     const loadThumbnail = async () => {
       try {
-        // First get a decrypted preview URI from the vault (web-safe `uri` and optional `nativeUri`)
         const res = (await SecureVault.previewFile({
           id: item.id,
           password: "",
@@ -111,7 +108,6 @@ export const VaultGridItem: React.FC<VaultGridItemProps> = ({
         }
 
         if (isVideo) {
-          // Native platforms: try native Thumbnail plugin using the decrypted URI
           if (Capacitor.isNativePlatform()) {
             try {
               const res = await Thumbnail.getThumbnail({
@@ -125,11 +121,10 @@ export const VaultGridItem: React.FC<VaultGridItemProps> = ({
                 return;
               }
             } catch (e) {
-              // fallthrough to web capture
+              // fallthrough
             }
           }
 
-          // Web or fallback: capture a poster frame from the video blob/uri
           try {
             const webUri =
               Capacitor.isNativePlatform() && (Capacitor as any).convertFileSrc
@@ -144,7 +139,6 @@ export const VaultGridItem: React.FC<VaultGridItemProps> = ({
         }
 
         if (isApk) {
-          // APK thumbnails generally require native extraction; attempt native plugin first
           if (Capacitor.isNativePlatform()) {
             try {
               const res = await Thumbnail.getThumbnail({
@@ -161,10 +155,8 @@ export const VaultGridItem: React.FC<VaultGridItemProps> = ({
               console.warn("APK thumbnail native extraction failed", e);
             }
           }
-          // no reliable web fallback for APKs
         }
 
-        // If we reach here, no thumbnail available
         if (active) setThumbnail(null);
       } catch (e) {
         console.warn("Failed to load thumbnail for", item.id, e);
@@ -178,23 +170,23 @@ export const VaultGridItem: React.FC<VaultGridItemProps> = ({
     };
   }, [item.id, isThumbnailable, item.type, isImage, isVideo, isApk]);
 
-  const handlePress = () => {
+  const handlePress = useCallback((e: any) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+
     if (selectionMode) {
       onSelect(item.id);
     } else {
       if (item.type === "FOLDER") onNavigate(item);
       else onView(item);
     }
-  };
+  }, [selectionMode, item, onSelect, onNavigate, onView]);
 
-  const handleLongPress = async () => {
-    if (!selectionMode) {
-      try {
-        await Haptics.impact({ style: ImpactStyle.Medium });
-      } catch (e) {}
-      onSelect(item.id);
-    }
-  };
+  const handleLongPress = useCallback(async () => {
+    try {
+      await Haptics.impact({ style: ImpactStyle.Medium });
+    } catch (e) {}
+    onSelect(item.id);
+  }, [onSelect, item.id]);
 
   const longPressProps = useLongPress(handleLongPress, handlePress, {
     delay: 400,

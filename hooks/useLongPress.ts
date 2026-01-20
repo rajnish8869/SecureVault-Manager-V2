@@ -1,22 +1,22 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef } from 'react';
 
 export const useLongPress = (
   onLongPress: (e: any) => void,
   onClick: (e: any) => void,
   { delay = 500 } = {}
 ) => {
-  const [longPressTriggered, setLongPressTriggered] = useState(false);
-  const timeout = useRef<any>(undefined);
+  const timeout = useRef<any>(null);
   const startCoord = useRef<{ x: number; y: number } | null>(null);
   const isScrolling = useRef(false);
+  const isLongPress = useRef(false);
 
   const start = useCallback(
     (event: any) => {
-      // Ignore non-primary mouse buttons
+      // Ignore right/middle clicks
       if (event.type === 'mousedown' && event.button !== 0) return;
       
-      // Track start position
-      if (event.touches && event.touches.length > 0) {
+      // Store coordinates
+      if (event.touches) {
         startCoord.current = { 
             x: event.touches[0].clientX, 
             y: event.touches[0].clientY 
@@ -26,13 +26,14 @@ export const useLongPress = (
       }
 
       isScrolling.current = false;
-      setLongPressTriggered(false);
+      isLongPress.current = false;
+      
+      if (timeout.current) clearTimeout(timeout.current);
       
       timeout.current = setTimeout(() => {
-        // Only trigger if we haven't started scrolling
         if (!isScrolling.current) {
+            isLongPress.current = true;
             onLongPress(event);
-            setLongPressTriggered(true);
         }
       }, delay);
     },
@@ -40,7 +41,6 @@ export const useLongPress = (
   );
 
   const move = useCallback((event: any) => {
-      // If already scrolling or no start coord, ignore
       if (isScrolling.current || !startCoord.current) return;
 
       const { clientX, clientY } = event.touches ? event.touches[0] : event;
@@ -48,42 +48,47 @@ export const useLongPress = (
       const deltaX = Math.abs(clientX - startCoord.current.x);
       const deltaY = Math.abs(clientY - startCoord.current.y);
 
-      // If moved more than 10px, treat as scroll/drag
+      // Threshold for scrolling detection
       if (deltaX > 10 || deltaY > 10) {
           isScrolling.current = true;
           if (timeout.current) clearTimeout(timeout.current);
       }
   }, []);
 
-  const clear = useCallback(
+  const end = useCallback(
     (event: any) => {
-      timeout.current && clearTimeout(timeout.current);
+      if (timeout.current) clearTimeout(timeout.current);
       
-      // Trigger click ONLY if:
-      // 1. Long press didn't trigger
-      // 2. We didn't scroll/drag
-      if (!longPressTriggered && !isScrolling.current) {
-        // Prevent ghost clicks if needed, but usually not required here if we handle logic manually
+      // If it wasn't a long press and we didn't scroll, treat as click
+      if (!isLongPress.current && !isScrolling.current) {
         onClick(event);
+        
+        // Prevent ghost clicks on touch devices if handled here
+        if (event.cancelable && event.type === 'touchend') {
+            // Note: preventDefault might block some native behaviors, use with caution.
+            // For list items, it usually prevents the delayed 'click' event.
+            // We rely on this touch handler for the action.
+        }
       }
       
-      setLongPressTriggered(false);
       isScrolling.current = false;
       startCoord.current = null;
+      isLongPress.current = false;
     },
-    [onClick, longPressTriggered]
+    [onClick]
   );
 
   return {
     onMouseDown: start,
     onTouchStart: start,
     onTouchMove: move,
-    onMouseUp: clear,
-    onMouseLeave: (e: any) => {
-        if (timeout.current) clearTimeout(timeout.current);
-        isScrolling.current = false;
-        startCoord.current = null;
-    },
-    onTouchEnd: clear
+    onMouseUp: end,
+    onTouchEnd: end,
+    onMouseLeave: end,
+    onContextMenu: (e: any) => {
+        // Prevent native context menu if we are handling long press
+        // This is important for Android 'select text' or 'image options' context menus
+        e.preventDefault();
+    }
   };
 };

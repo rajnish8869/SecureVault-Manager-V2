@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import type { VaultItem } from "../../types";
 import { Icons, getFileIcon } from "../icons/Icons";
 import { useLongPress } from "../../hooks/useLongPress";
@@ -90,7 +90,6 @@ export const VaultListItem: React.FC<VaultListItemProps> = ({
 
     const loadThumbnail = async () => {
       try {
-        // previewFile returns a web-safe `uri` and may include `nativeUri` for native plugins
         const res = (await SecureVault.previewFile({
           id: item.id,
           password: "",
@@ -170,25 +169,29 @@ export const VaultListItem: React.FC<VaultListItemProps> = ({
     };
   }, [item.id, isThumbnailable, item.type, isImage, isVideo, isApk]);
 
-  const handlePress = (e: any) => {
-    // Prevent default to avoid ghost clicks or double firing if needed,
-    // though usually handled by hook logic.
+  // Memoized handlers to ensure fresh closures for selectionMode
+  const handlePress = useCallback((e: any) => {
+    // Stop propagation to prevent bubbling issues in complex lists
+    if (e && e.stopPropagation) e.stopPropagation();
+
     if (selectionMode) {
+      // In selection mode, ALWAYS toggle selection, never view
       onSelect(item.id);
     } else {
+      // Not in selection mode, view or navigate
       if (item.type === "FOLDER") onNavigate(item);
       else onView(item);
     }
-  };
+  }, [selectionMode, item, onSelect, onNavigate, onView]);
 
-  const handleLongPress = async () => {
-    if (!selectionMode) {
-      try {
-        await Haptics.impact({ style: ImpactStyle.Medium });
-      } catch (e) {}
-      onSelect(item.id);
-    }
-  };
+  const handleLongPress = useCallback(async () => {
+    // If not in selection mode, enter it via selection.
+    // If ALREADY in selection mode, long press acts as a toggle (Android standard).
+    try {
+      await Haptics.impact({ style: ImpactStyle.Medium });
+    } catch (e) {}
+    onSelect(item.id);
+  }, [onSelect, item.id]);
 
   const longPressProps = useLongPress(handleLongPress, handlePress, {
     delay: 400,
@@ -278,7 +281,7 @@ export const VaultListItem: React.FC<VaultListItemProps> = ({
             e.stopPropagation();
             onMenu(item);
           }}
-          // Prevent event bubbling for long press logic
+          // Prevent interactions from bubbling to the row handlers
           onMouseDown={(e) => e.stopPropagation()}
           onMouseUp={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
