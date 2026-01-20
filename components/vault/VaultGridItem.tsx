@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import type { VaultItem } from "../../types";
 import { Icons, getFileIcon } from "../icons/Icons";
 import { useLongPress } from "../../hooks/useLongPress";
@@ -75,10 +75,12 @@ export const VaultGridItem: React.FC<VaultGridItemProps> = ({
         };
 
         video.addEventListener("loadeddata", () => {
+          // Seek to 0.5s or nearest
           try {
             if (video.duration > 0.5) video.currentTime = 0.5;
             else video.currentTime = 0;
           } catch (e) {
+            // some browsers restrict seek before play; try capture after a short delay
             setTimeout(() => handleSeek(), 250);
           }
         });
@@ -90,6 +92,7 @@ export const VaultGridItem: React.FC<VaultGridItemProps> = ({
 
     const loadThumbnail = async () => {
       try {
+        // First get a decrypted preview URI from the vault (web-safe `uri` and optional `nativeUri`)
         const res = (await SecureVault.previewFile({
           id: item.id,
           password: "",
@@ -108,6 +111,7 @@ export const VaultGridItem: React.FC<VaultGridItemProps> = ({
         }
 
         if (isVideo) {
+          // Native platforms: try native Thumbnail plugin using the decrypted URI
           if (Capacitor.isNativePlatform()) {
             try {
               const res = await Thumbnail.getThumbnail({
@@ -121,10 +125,11 @@ export const VaultGridItem: React.FC<VaultGridItemProps> = ({
                 return;
               }
             } catch (e) {
-              // fallthrough
+              // fallthrough to web capture
             }
           }
 
+          // Web or fallback: capture a poster frame from the video blob/uri
           try {
             const webUri =
               Capacitor.isNativePlatform() && (Capacitor as any).convertFileSrc
@@ -139,6 +144,7 @@ export const VaultGridItem: React.FC<VaultGridItemProps> = ({
         }
 
         if (isApk) {
+          // APK thumbnails generally require native extraction; attempt native plugin first
           if (Capacitor.isNativePlatform()) {
             try {
               const res = await Thumbnail.getThumbnail({
@@ -155,8 +161,10 @@ export const VaultGridItem: React.FC<VaultGridItemProps> = ({
               console.warn("APK thumbnail native extraction failed", e);
             }
           }
+          // no reliable web fallback for APKs
         }
 
+        // If we reach here, no thumbnail available
         if (active) setThumbnail(null);
       } catch (e) {
         console.warn("Failed to load thumbnail for", item.id, e);
@@ -170,23 +178,23 @@ export const VaultGridItem: React.FC<VaultGridItemProps> = ({
     };
   }, [item.id, isThumbnailable, item.type, isImage, isVideo, isApk]);
 
-  const handlePress = useCallback((e: any) => {
-    if (e && e.stopPropagation) e.stopPropagation();
-
+  const handlePress = () => {
     if (selectionMode) {
       onSelect(item.id);
     } else {
       if (item.type === "FOLDER") onNavigate(item);
       else onView(item);
     }
-  }, [selectionMode, item, onSelect, onNavigate, onView]);
+  };
 
-  const handleLongPress = useCallback(async () => {
-    try {
-      await Haptics.impact({ style: ImpactStyle.Medium });
-    } catch (e) {}
-    onSelect(item.id);
-  }, [onSelect, item.id]);
+  const handleLongPress = async () => {
+    if (!selectionMode) {
+      try {
+        await Haptics.impact({ style: ImpactStyle.Medium });
+      } catch (e) {}
+      onSelect(item.id);
+    }
+  };
 
   const longPressProps = useLongPress(handleLongPress, handlePress, {
     delay: 400,
@@ -196,7 +204,7 @@ export const VaultGridItem: React.FC<VaultGridItemProps> = ({
     <div
       {...longPressProps}
       className={`
-        relative flex flex-col items-center p-3 rounded-2xl transition-all duration-200 border aspect-square justify-between select-none touch-pan-y
+        relative flex flex-col items-center p-3 rounded-2xl transition-all duration-200 border aspect-square justify-between
         ${
           isSelected
             ? "bg-blue-500/10 border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.1)]"
@@ -205,7 +213,7 @@ export const VaultGridItem: React.FC<VaultGridItemProps> = ({
       `}
     >
       {/* Icon Area */}
-      <div className="flex-1 flex items-center justify-center w-full relative pointer-events-none">
+      <div className="flex-1 flex items-center justify-center w-full relative">
         <div
           className={`
             w-14 h-14 rounded-2xl flex items-center justify-center text-3xl transition-all overflow-hidden
@@ -241,7 +249,7 @@ export const VaultGridItem: React.FC<VaultGridItemProps> = ({
       </div>
 
       {/* Content Area */}
-      <div className="w-full text-center mt-2 pointer-events-none">
+      <div className="w-full text-center mt-2">
         <h4
           className={`text-xs font-semibold truncate leading-tight w-full ${
             isSelected ? "text-blue-400" : "text-slate-200"
@@ -261,7 +269,7 @@ export const VaultGridItem: React.FC<VaultGridItemProps> = ({
       {/* Menu Button (Only non-selection mode) - Floating top right */}
       {!selectionMode && (
         <button
-          className="absolute top-1 right-1 w-8 h-8 flex items-center justify-center rounded-full text-vault-500 hover:text-white hover:bg-vault-700/50 active:bg-vault-700 transition-colors pointer-events-auto"
+          className="absolute top-1 right-1 w-8 h-8 flex items-center justify-center rounded-full text-vault-500 hover:text-white hover:bg-vault-700/50 active:bg-vault-700 transition-colors"
           onClick={(e) => {
             e.stopPropagation();
             onMenu(item);

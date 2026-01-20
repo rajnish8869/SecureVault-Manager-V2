@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import type { VaultItem } from "../../types";
 import { Icons, getFileIcon } from "../icons/Icons";
 import { useLongPress } from "../../hooks/useLongPress";
@@ -90,6 +90,7 @@ export const VaultListItem: React.FC<VaultListItemProps> = ({
 
     const loadThumbnail = async () => {
       try {
+        // previewFile returns a web-safe `uri` and may include `nativeUri` for native plugins
         const res = (await SecureVault.previewFile({
           id: item.id,
           password: "",
@@ -169,29 +170,23 @@ export const VaultListItem: React.FC<VaultListItemProps> = ({
     };
   }, [item.id, isThumbnailable, item.type, isImage, isVideo, isApk]);
 
-  // Memoized handlers to ensure fresh closures for selectionMode
-  const handlePress = useCallback((e: any) => {
-    // Stop propagation to prevent bubbling issues in complex lists
-    if (e && e.stopPropagation) e.stopPropagation();
-
+  const handlePress = () => {
     if (selectionMode) {
-      // In selection mode, ALWAYS toggle selection, never view
       onSelect(item.id);
     } else {
-      // Not in selection mode, view or navigate
       if (item.type === "FOLDER") onNavigate(item);
       else onView(item);
     }
-  }, [selectionMode, item, onSelect, onNavigate, onView]);
+  };
 
-  const handleLongPress = useCallback(async () => {
-    // If not in selection mode, enter it via selection.
-    // If ALREADY in selection mode, long press acts as a toggle (Android standard).
-    try {
-      await Haptics.impact({ style: ImpactStyle.Medium });
-    } catch (e) {}
-    onSelect(item.id);
-  }, [onSelect, item.id]);
+  const handleLongPress = async () => {
+    if (!selectionMode) {
+      try {
+        await Haptics.impact({ style: ImpactStyle.Medium });
+      } catch (e) {}
+      onSelect(item.id);
+    }
+  };
 
   const longPressProps = useLongPress(handleLongPress, handlePress, {
     delay: 400,
@@ -201,7 +196,7 @@ export const VaultListItem: React.FC<VaultListItemProps> = ({
     <div
       {...longPressProps}
       className={`
-        relative flex items-center p-3 mb-2 rounded-2xl transition-all duration-200 border select-none touch-pan-y
+        relative flex items-center p-3 mb-2 rounded-2xl transition-all duration-200 border
         ${
           isSelected
             ? "bg-blue-500/10 border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.1)]"
@@ -210,7 +205,7 @@ export const VaultListItem: React.FC<VaultListItemProps> = ({
       `}
     >
       {/* Icon Area */}
-      <div className="shrink-0 relative pointer-events-none">
+      <div className="shrink-0 relative">
         <div
           className={`
             w-12 h-12 rounded-xl flex items-center justify-center text-2xl transition-all overflow-hidden
@@ -250,7 +245,7 @@ export const VaultListItem: React.FC<VaultListItemProps> = ({
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 min-w-0 px-4 pointer-events-none">
+      <div className="flex-1 min-w-0 px-4">
         <h4
           className={`text-sm font-semibold truncate leading-tight ${
             isSelected ? "text-blue-400" : "text-slate-200"
@@ -276,12 +271,12 @@ export const VaultListItem: React.FC<VaultListItemProps> = ({
       {/* Menu Button (Only non-selection mode) */}
       {!selectionMode && (
         <button
-          className="w-10 h-10 flex items-center justify-center rounded-full text-vault-500 hover:text-white hover:bg-vault-700/50 active:bg-vault-700 transition-colors pointer-events-auto"
+          className="w-10 h-10 flex items-center justify-center rounded-full text-vault-500 hover:text-white hover:bg-vault-700/50 active:bg-vault-700 transition-colors"
           onClick={(e) => {
             e.stopPropagation();
             onMenu(item);
           }}
-          // Prevent interactions from bubbling to the row handlers
+          // Prevent event bubbling for long press logic
           onMouseDown={(e) => e.stopPropagation()}
           onMouseUp={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
