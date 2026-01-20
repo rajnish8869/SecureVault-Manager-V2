@@ -149,6 +149,7 @@ export default function App() {
         document.hidden &&
         !isPickingFile.current &&
         !isBiometricActive.current &&
+        !isProcessing && // Prevent lock if processing files
         appState !== "SETUP" &&
         appState !== "LOADING"
       ) {
@@ -165,7 +166,7 @@ export default function App() {
     };
     document.addEventListener("visibilitychange", handleVis);
     return () => document.removeEventListener("visibilitychange", handleVis);
-  }, [appState]);
+  }, [appState, isProcessing]); // Add isProcessing to dependency array
 
   // Back Button Handling
   useEffect(() => {
